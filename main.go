@@ -24,7 +24,7 @@ func (s *GameState) Render() {
 	// Draw header
 	drawStr(0, 0, fmt.Sprintf(" Game of Life"), termbox.ColorGreen, termbox.ColorDefault)
 	drawStr(0, 1, fmt.Sprintf(" Gen: %d | Status: %s", s.generations, statusText(s.running)), termbox.ColorCyan, termbox.ColorDefault)
-	drawStr(0, 2, " ↑↓←→: Move | Enter: Toggle | Space: Pause/Resume", termbox.ColorYellow, termbox.ColorDefault)
+	drawStr(0, 2, " ↑↓←→: Move | Enter: Toggle | Space: Pause | p: Pattern | F5/r: Reset | F8/R: Random | q: Quit", termbox.ColorYellow, termbox.ColorDefault)
 
 	// Draw grid
 	startY := 4
@@ -33,7 +33,7 @@ func (s *GameState) Render() {
 			var ch rune
 			var fg, bg termbox.Attribute
 			if s.grid.Cells(r, c) {
-				ch = '█'
+				ch = '●'
 				fg = termbox.ColorWhite
 				bg = termbox.ColorBlue
 			} else {
@@ -72,10 +72,10 @@ func handleKeyEvent(ev termbox.Event, state *GameState) bool {
 	switch {
 	case ev.Key == termbox.KeyEsc || ev.Ch == 'q':
 		return true
-	case ev.Key == termbox.KeyF5:
+	case ev.Key == termbox.KeyF5 || ev.Ch == 'c':
 		state.grid.Reset()
 		state.generations = 0
-	case ev.Key == termbox.KeyF8:
+	case ev.Key == termbox.KeyF8 || ev.Ch == 'r':
 		state.grid.Randomize()
 		state.generations = 0
 	case ev.Key == termbox.KeySpace:
