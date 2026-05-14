@@ -68,10 +68,10 @@ func statusText(running bool) string {
 	return "Paused"
 }
 
-func handleKeyEvent(ev termbox.Event, state *GameState) {
+func handleKeyEvent(ev termbox.Event, state *GameState) bool {
 	switch {
 	case ev.Key == termbox.KeyEsc || ev.Ch == 'q':
-		termbox.Interrupt()
+		return true
 	case ev.Key == termbox.KeyF5:
 		state.grid.Reset()
 		state.generations = 0
@@ -99,6 +99,7 @@ func handleKeyEvent(ev termbox.Event, state *GameState) {
 	case ev.Key == termbox.KeyEnter:
 		state.grid.Toggle(state.cursorR, state.cursorC)
 	}
+	return false
 }
 
 func main() {
@@ -125,7 +126,9 @@ func main() {
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
-			handleKeyEvent(ev, state)
+			if handleKeyEvent(ev, state) {
+				return
+			}
 		case termbox.EventResize:
 			w, h := termbox.Size()
 			state.grid.Resize(h-4, w)
