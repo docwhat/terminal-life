@@ -1,12 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-
-	"game-of-life/gol"
-	"github.com/nsf/termbox-go"
-)
+import "game-of-life/gol"
 
 type Pattern struct {
 	Name  string
@@ -73,131 +67,13 @@ var patterns = []Pattern{
 	}},
 }
 
-// PlacePattern places a pattern centered at (r, c) on the grid.
+// PlacePattern places a pattern at (r, c) on the grid.
 func PlacePattern(g *gol.Grid, r, c int, p Pattern) {
 	for _, cell := range p.Cells {
 		gr := r + cell[0]
 		gc := c + cell[1]
 		if gr >= 0 && gr < g.Rows() && gc >= 0 && gc < g.Cols() {
 			g.Set(gr, gc)
-		}
-	}
-}
-
-// fuzzyMatch returns true if query matches name (case-insensitive subsequence).
-func fuzzyMatch(query, name string) bool {
-	query = strings.ToLower(query)
-	name = strings.ToLower(name)
-	i := 0
-	for j := 0; i < len(query) && j < len(name); j++ {
-		if query[i] == name[j] {
-			i++
-		}
-	}
-	return i == len(query)
-}
-
-// patternOverlay shows a searchable pattern list. Returns the selected pattern or nil.
-func patternOverlay(state *GameState) *Pattern {
-	var filtered []Pattern
-	highlight := 0
-	query := ""
-
-	for {
-		_, h := termbox.Size()
-
-		// Filter patterns
-		filtered = nil
-		for _, p := range patterns {
-			if query == "" || fuzzyMatch(query, p.Name) {
-				filtered = append(filtered, p)
-			}
-		}
-		if highlight >= len(filtered) {
-			highlight = len(filtered) - 1
-		}
-		if highlight < 0 {
-			highlight = 0
-		}
-
-		// Draw overlay
-		termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
-
-		// Header
-		drawStr(0, 0, " Place Pattern (type to filter, ↑↓ navigate, Enter place, Esc cancel)", termbox.ColorGreen, termbox.ColorDefault)
-
-		// Query line
-		queryText := "Filter: " + query + "_"
-		drawStr(0, 2, queryText, termbox.ColorYellow, termbox.ColorDefault)
-
-		// Pattern list
-		listStart := 4
-		listEnd := h - 2
-		visible := listEnd - listStart
-		if visible <= 0 {
-			visible = 1
-		}
-
-		// Calculate scroll offset
-		scroll := 0
-		if highlight >= scroll+visible {
-			scroll = highlight - visible + 1
-		}
-		if highlight < scroll {
-			scroll = highlight
-		}
-
-		for i := scroll; i < len(filtered) && (i-scroll)+listStart < listEnd; i++ {
-			y := listStart + (i - scroll)
-			var fg, bg termbox.Attribute
-			text := "  " + filtered[i].Name
-			if i == highlight {
-				fg = termbox.ColorBlack
-				bg = termbox.ColorYellow
-				text = ">> " + filtered[i].Name
-			} else {
-				fg = termbox.ColorWhite
-				bg = termbox.ColorDefault
-			}
-			drawStr(2, y, text, fg, bg)
-		}
-
-		// Footer
-		drawStr(0, h-1, fmt.Sprintf(" %d pattern(s) | Cursor: (%d,%d)", len(filtered), state.cursorR, state.cursorC), termbox.ColorCyan, termbox.ColorDefault)
-
-		termbox.Flush()
-
-		// Handle input
-		ev := termbox.PollEvent()
-		switch ev.Type {
-		case termbox.EventKey:
-			switch {
-			case ev.Key == termbox.KeyEsc:
-				return nil
-			case ev.Key == termbox.KeyEnter:
-				if len(filtered) > 0 {
-					return &filtered[highlight]
-				}
-				return nil
-			case ev.Key == termbox.KeyArrowUp:
-				if highlight > 0 {
-					highlight--
-				}
-			case ev.Key == termbox.KeyArrowDown:
-				if highlight < len(filtered)-1 {
-					highlight++
-				}
-			case ev.Key == termbox.KeyBackspace:
-				if len(query) > 0 {
-					query = query[:len(query)-1]
-				}
-			case ev.Ch != 0 && ev.Ch < 128:
-				if len(query) < 20 {
-					query += string(ev.Ch)
-				}
-			}
-		case termbox.EventError:
-			return nil
 		}
 	}
 }
