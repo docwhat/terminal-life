@@ -1,4 +1,6 @@
 # Project Instructions
 
-- Run `go vet` and `go test` after code changes.
+- When possible, write tests prior to writing code.
+- Run `trunk check` after code changes.
+- Commit when you complete your work.
 - Keep responses concise.

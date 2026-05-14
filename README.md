@@ -19,8 +19,4 @@ You can use the space bar to pause the game.
 
 ## Development
 
-Install `go` and `golangci-lint`.
-
-Ensure that all tests pass and that `golangci-lint` passes.
-
-Before writing new features, write a test describing it (TDD).
+Use `trunk` (from <https://trunk.io>) to ensure everything is formatted and linted correctly.
