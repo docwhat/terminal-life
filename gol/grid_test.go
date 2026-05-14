@@ -135,10 +135,10 @@ func TestEvolveUnderpopulationAndOverpopulation(t *testing.T) {
 	// Overpopulation: 4 neighbors -> Dies
 	g2 := NewGrid(3, 5)
 	g2.Set(1, 2)
-		g2.Set(0, 1)
-		g2.Set(0, 2)
-		g2.Set(0, 3)
-		g2.Set(1, 1)
+	g2.Set(0, 1)
+	g2.Set(0, 2)
+	g2.Set(0, 3)
+	g2.Set(1, 1)
 	g2.Evolve()
 	if g2.Get(1, 2) {
 		t.Error("Expected death from overpopulation (4 neighbors)")

@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nsf/termbox-go"
 	"game-of-life/gol"
+	"github.com/nsf/termbox-go"
 )
 
 type GameState struct {
-	grid      *gol.Grid
-	cursorR   int
-	cursorC   int
-	running   bool
+	grid        *gol.Grid
+	cursorR     int
+	cursorC     int
+	running     bool
 	generations int
 }
 
