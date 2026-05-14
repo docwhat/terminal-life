@@ -120,6 +120,8 @@ func main() {
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 
+	state.Render()
+
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
