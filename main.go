@@ -69,34 +69,34 @@ func statusText(running bool) string {
 }
 
 func handleKeyEvent(ev termbox.Event, state *GameState) {
-	switch ev.Key {
-	case termbox.KeyEsc:
+	switch {
+	case ev.Key == termbox.KeyEsc || ev.Ch == 'q':
 		termbox.Interrupt()
-	case termbox.KeyF5:
+	case ev.Key == termbox.KeyF5:
 		state.grid.Reset()
 		state.generations = 0
-	case termbox.KeyF8:
+	case ev.Key == termbox.KeyF8:
 		state.grid.Randomize()
 		state.generations = 0
-	case termbox.KeySpace:
+	case ev.Key == termbox.KeySpace:
 		state.running = !state.running
-	case termbox.KeyArrowUp:
+	case ev.Key == termbox.KeyArrowUp:
 		if state.cursorR > 0 {
 			state.cursorR--
 		}
-	case termbox.KeyArrowDown:
+	case ev.Key == termbox.KeyArrowDown:
 		if state.cursorR < state.grid.Rows()-1 {
 			state.cursorR++
 		}
-	case termbox.KeyArrowLeft:
+	case ev.Key == termbox.KeyArrowLeft:
 		if state.cursorC > 0 {
 			state.cursorC--
 		}
-	case termbox.KeyArrowRight:
+	case ev.Key == termbox.KeyArrowRight:
 		if state.cursorC < state.grid.Cols()-1 {
 			state.cursorC++
 		}
-	case termbox.KeyEnter:
+	case ev.Key == termbox.KeyEnter:
 		state.grid.Toggle(state.cursorR, state.cursorC)
 	}
 }
