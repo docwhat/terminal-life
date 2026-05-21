@@ -1,6 +1,6 @@
 package main
 
-import "game-of-life/gol"
+import "docwhat.org/terminal-life/gol"
 
 type Pattern struct {
 	Name  string
