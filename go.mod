@@ -1,4 +1,4 @@
-module game-of-life
+module docwhat.org/terminal-life
 
 go 1.26.3
 
