@@ -9,8 +9,6 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
-const sidebarWidth = 20
-
 type GameState struct {
 	grid        *gol.Grid
 	cursorR     int
@@ -34,7 +32,7 @@ func (s *GameState) Population() int {
 
 func (s *GameState) Render() {
 	w, h := termbox.Size()
-	if h < 5 || w < sidebarWidth+10 {
+	if h < 5 || w < 10 {
 		return
 	}
 
@@ -56,65 +54,17 @@ func (s *GameState) Render() {
 	for x := 0; x < w; x++ {
 		termbox.SetCell(x, 1, ' ', infoFg, infoBg)
 	}
-	info := fmt.Sprintf(" Gen: %-6d | %-8s | Pop: %-6d | Speed: %.1fs/gen ",
-		s.generations, statusText(s.running), s.Population(), s.interval.Seconds())
+	info := fmt.Sprintf(" Gen: %-6d | %-8s | Pop: %-6d | Grid: %dx%d | Speed: %.1fs/gen ",
+		s.generations, statusText(s.running), s.Population(), s.grid.Rows(), s.grid.Cols(), s.interval.Seconds())
 	drawStr(1, 1, info, termbox.ColorWhite, infoBg)
 
-	// ── Sidebar (right side) ──
-	gridW := w - sidebarWidth
-	sbX := gridW
-	sbFg, sbBg := termbox.ColorBlack, termbox.ColorCyan
-	for x := sbX; x < w; x++ {
-		termbox.SetCell(x, 1, ' ', sbFg, sbBg)
-	}
-
-	// Sidebar header
-	sbTitle := "  Controls  "
-	for x := sbX; x < w; x++ {
-		termbox.SetCell(x, 2, ' ', sbFg, sbBg)
-	}
-	drawStr(sbX+1, 2, sbTitle, termbox.ColorWhite, sbBg)
-
-	// Sidebar content
-	sbLines := []string{
-		"",
-		"  Space   Pause/Resume",
-		"  Enter   Toggle cell",
-		"  ↑↓←→    Move cursor",
-		"  c       Clear grid",
-		"  r       Randomize",
-		"  + / -   Speed up/down",
-		"  p       Place pattern",
-		"  q / Esc Quit",
-		"",
-		"  Grid: ",
-		fmt.Sprintf("  %d x %d", s.grid.Rows(), s.grid.Cols()),
-	}
-
-	startY := 3
-	for i, line := range sbLines {
-		y := startY + i
-		if y >= h-1 {
-			break
-		}
-		// Clear sidebar row
-		for x := sbX; x < w; x++ {
-			termbox.SetCell(x, y, ' ', sbFg, sbBg)
-		}
-		if i >= len(sbLines)-3 {
-			drawStr(sbX+1, y, line, termbox.ColorYellow, sbBg)
-		} else {
-			drawStr(sbX+1, y, line, termbox.ColorWhite, sbBg)
-		}
-	}
-
-	// ── Grid area (rows 2..h-2, cols 0..gridW-1) ──
-	gridStartY := 3
+	// ── Grid area (rows 2..h-2, cols 0..w-1) ──
+	gridStartY := 2
 	gridEndY := h - 1
 	gridRows := gridEndY - gridStartY
 
 	for r := 0; r < gridRows && r < s.grid.Rows(); r++ {
-		for c := 0; c < gridW && c < s.grid.Cols(); c++ {
+		for c := 0; c < w && c < s.grid.Cols(); c++ {
 			var ch rune
 			var fg, bg termbox.Attribute
 
@@ -142,7 +92,7 @@ func (s *GameState) Render() {
 	for x := 0; x < w; x++ {
 		termbox.SetCell(x, h-1, ' ', statusFg, statusBg)
 	}
-	status := fmt.Sprintf(" Cursor: (%d,%-3d) | %d pattern(s) available | %s",
+	status := fmt.Sprintf(" Cursor: (%d,%-3d) | %d pattern(s) available | %s | ? for help ",
 		s.cursorR, s.cursorC, len(patterns), statusText(s.running))
 	drawStr(1, h-1, status, termbox.ColorWhite, statusBg)
 
@@ -215,6 +165,8 @@ func handleKeyEvent(ev termbox.Event, state *GameState) bool {
 			PlacePattern(state.grid, state.cursorR, state.cursorC, *pattern)
 			state.generations = 0
 		}
+	case ev.Ch == '?' || ev.Ch == 'h':
+		helpOverlay()
 	}
 	return false
 }
@@ -227,16 +179,10 @@ func main() {
 	defer termbox.Close()
 
 	w, h := termbox.Size()
-	gridW := w - sidebarWidth
-	if gridW < 10 {
-		gridW = w - 4
-	}
+	gridCols := w
 	gridRows := h - 4
-	if gridRows < 4 {
-		gridRows = 4
-	}
 
-	grid := gol.NewGrid(gridRows, gridW)
+	grid := gol.NewGrid(gridRows, gridCols)
 	grid.Randomize()
 
 	state := &GameState{
@@ -278,15 +224,9 @@ func main() {
 				}
 			case termbox.EventResize:
 				w, h := termbox.Size()
-				gridW := w - sidebarWidth
+				gridCols := w
 				gridRows := h - 4
-				if gridW < 10 {
-					gridW = w - 4
-				}
-				if gridRows < 4 {
-					gridRows = 4
-				}
-				state.grid.Resize(gridRows, gridW)
+				state.grid.Resize(gridRows, gridCols)
 			case termbox.EventError:
 				return
 			}
@@ -424,6 +364,86 @@ func patternOverlay(state *GameState) *Pattern {
 			}
 		case termbox.EventError:
 			return nil
+		}
+	}
+}
+
+// helpOverlay shows a help dialog. Dismissed with any key.
+func helpOverlay() {
+	for {
+		w, h := termbox.Size()
+
+		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
+			fmt.Println("Failed to clear screen:", err)
+			return
+		}
+
+		// Dialog dimensions
+		dialogW := 52
+		dialogH := 16
+		if dialogW > w-2 {
+			dialogW = w - 2
+		}
+		if dialogH > h-2 {
+			dialogH = h - 2
+		}
+		x0 := (w - dialogW) / 2
+		y0 := (h - dialogH) / 2
+
+		// Draw dialog background
+		for y := y0; y < y0+dialogH; y++ {
+			for x := x0; x < x0+dialogW; x++ {
+				termbox.SetCell(x, y, ' ', termbox.ColorWhite, termbox.ColorCyan)
+			}
+		}
+
+		// Title
+		title := " Controls "
+		titleX := x0 + (dialogW-len(title))/2
+		for i, ch := range title {
+			termbox.SetCell(titleX+i, y0, ch, termbox.ColorBlack, termbox.ColorCyan)
+		}
+
+		// Help lines
+		helpLines := []string{
+			"",
+			"  Space     Pause / Resume",
+			"  Enter     Toggle cell at cursor",
+			"  ↑ ↓ ← →   Move cursor",
+			"  c         Clear grid",
+			"  r         Randomize",
+			"  + / -     Speed up / down",
+			"  p         Place pattern",
+			"  ? / h     Show this help",
+			"  q / Esc   Quit",
+			"",
+		}
+
+		for i, line := range helpLines {
+			y := y0 + 2 + i
+			if y >= y0+dialogH-1 {
+				break
+			}
+			if i == len(helpLines)-2 {
+				drawStr(x0+2, y, line, termbox.ColorYellow, termbox.ColorCyan)
+			} else {
+				drawStr(x0+2, y, line, termbox.ColorWhite, termbox.ColorCyan)
+			}
+		}
+
+		// Footer
+		footer := " Press any key to close "
+		footerX := x0 + (dialogW-len(footer))/2
+		drawStr(footerX, y0+dialogH-1, footer, termbox.ColorBlack, termbox.ColorCyan)
+
+		if err := termbox.Flush(); err != nil {
+			fmt.Println("Failed to flush:", err)
+			return
+		}
+
+		ev := termbox.PollEvent()
+		if ev.Type == termbox.EventKey || ev.Type == termbox.EventError {
+			return
 		}
 	}
 }
