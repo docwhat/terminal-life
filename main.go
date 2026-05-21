@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"game-of-life/gol"
+	"docwhat.org/terminal-life/gol"
 	"github.com/nsf/termbox-go"
 )
 
@@ -38,7 +38,10 @@ func (s *GameState) Render() {
 		return
 	}
 
-	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
+		fmt.Println("Failed to clear screen:", err)
+		return
+	}
 
 	// ── Title bar (row 0) ──
 	titleFg, titleBg := termbox.ColorWhite, termbox.ColorBlue
@@ -143,7 +146,10 @@ func (s *GameState) Render() {
 		s.cursorR, s.cursorC, len(patterns), statusText(s.running))
 	drawStr(1, h-1, status, termbox.ColorWhite, statusBg)
 
-	termbox.Flush()
+	if err := termbox.Flush(); err != nil {
+		fmt.Println("Failed to flush:", err)
+		return
+	}
 }
 
 func drawStr(x, y int, text string, fg, bg termbox.Attribute) {
@@ -327,7 +333,10 @@ func patternOverlay(state *GameState) *Pattern {
 		}
 
 		// Draw overlay
-		termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+		if err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault); err != nil {
+			fmt.Println("Failed to clear screen:", err)
+			return nil
+		}
 
 		// Header
 		header := " Place Pattern (type to filter, ↑↓ navigate, Enter place, Esc cancel) "
@@ -379,7 +388,10 @@ func patternOverlay(state *GameState) *Pattern {
 		}
 		drawStr(1, h-1, footer, termbox.ColorWhite, termbox.ColorCyan)
 
-		termbox.Flush()
+		if err := termbox.Flush(); err != nil {
+			fmt.Println("Failed to flush:", err)
+			return nil
+		}
 
 		// Handle input
 		ev := termbox.PollEvent()
