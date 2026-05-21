@@ -1,7 +1,5 @@
 package main
 
-import "docwhat.org/terminal-life/gol"
-
 type Pattern struct {
 	Name  string
 	Cells [][2]int // (row, col) offsets from top-left
@@ -68,7 +66,7 @@ var patterns = []Pattern{
 }
 
 // PlacePattern places a pattern at (r, c) on the grid.
-func PlacePattern(g *gol.Grid, r, c int, p Pattern) {
+func PlacePattern(g *Grid, r, c int, p Pattern) {
 	for _, cell := range p.Cells {
 		gr := r + cell[0]
 		gc := c + cell[1]

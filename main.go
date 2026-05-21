@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"docwhat.org/terminal-life/gol"
 	"github.com/nsf/termbox-go"
 )
 
@@ -18,7 +17,7 @@ const (
 )
 
 type GameState struct {
-	grid        *gol.Grid
+	grid        *Grid
 	cursorR     int
 	cursorC     int
 	running     bool
@@ -393,7 +392,7 @@ func main() {
 	gridCols := w
 	gridRows := h - 4
 
-	grid := gol.NewGrid(gridRows, gridCols)
+	grid := NewGrid(gridRows, gridCols)
 	grid.Randomize()
 
 	state := &GameState{

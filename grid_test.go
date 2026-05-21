@@ -1,4 +1,4 @@
-package gol
+package main
 
 import (
 	"testing"
