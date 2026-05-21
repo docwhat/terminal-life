@@ -20,3 +20,7 @@ You can use the space bar to pause the game.
 ## Development
 
 Use `trunk` (from <https://trunk.io>) to ensure everything is formatted and linted correctly.
+
+## Notes
+
+This game was implemented via a locally run LLM: Qwen3.6-27B-MLX-8bit
