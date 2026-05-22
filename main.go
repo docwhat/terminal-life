@@ -130,7 +130,7 @@ func (s *GameState) renderGame() {
 
 			// Cursor highlight (subtle, doesn't override cell color)
 			if r == s.cursorR && c == s.cursorC {
-				ch = '▓'
+				ch = '◉'
 				if colorIdx == cellDead {
 					fg = termbox.ColorYellow
 				} else {

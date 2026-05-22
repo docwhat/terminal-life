@@ -30,7 +30,7 @@ func NewTheme() *Theme {
 	t := &Theme{
 		DarkBg:    true, // default assumption
 		TrueColor: false,
-		CellChar:  '█',
+		CellChar:  '●',
 	}
 
 	// ── Truecolor detection ──
