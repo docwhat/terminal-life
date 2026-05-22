@@ -21,8 +21,8 @@ type GameState struct {
 	cursorR     int
 	cursorC     int
 	running     bool
+	speed       int // 0 = manual, 1-15 = generations per second
 	generations int
-	interval    time.Duration // tick interval
 
 	// Theme
 	theme *Theme
@@ -46,6 +46,17 @@ func (s *GameState) Population() int {
 		}
 	}
 	return pop
+}
+
+func (s *GameState) speedText() string {
+	if s.speed == 0 {
+		return "Manual"
+	}
+	return fmt.Sprintf("%d/s", s.speed)
+}
+
+func (s *GameState) speedInterval() time.Duration {
+	return time.Second / time.Duration(s.speed)
 }
 
 func (s *GameState) nextPatternColor() uint8 {
@@ -103,8 +114,8 @@ func (s *GameState) renderGame() {
 
 	// ── Info bar (row 1) ──
 	s.drawBar(1, w, t.InfoFg, t.InfoBg, " ")
-	info := fmt.Sprintf(" Gen: %-6d │ %-8s │ Pop: %-6d │ Grid: %dx%d │ Speed: %.1fs/gen ",
-		s.generations, statusText(s.running), s.Population(), s.grid.Rows(), s.grid.Cols(), s.interval.Seconds())
+	info := fmt.Sprintf(" Gen: %-6d │ %-8s │ Pop: %-6d │ Grid: %dx%d │ Speed: %-8s ",
+		s.generations, statusText(s.running, s.speed), s.Population(), s.grid.Rows(), s.grid.Cols(), s.speedText())
 	drawStr(1, 1, info, t.InfoFg, t.InfoBg)
 
 	// ── Grid area (rows 2..h-2, cols 0..w-1) ──
@@ -146,7 +157,7 @@ func (s *GameState) renderGame() {
 	// ── Status bar (row h-1) ──
 	s.drawBar(h-1, w, t.StatusFg, t.StatusBg, " ")
 	status := fmt.Sprintf(" Cursor: (%d,%-3d) │ %d pattern(s) │ %s │ ? for help ",
-		s.cursorR, s.cursorC, len(patterns), statusText(s.running))
+		s.cursorR, s.cursorC, len(patterns), statusText(s.running, s.speed))
 	drawStr(1, h-1, status, t.StatusFg, t.StatusBg)
 }
 
@@ -203,12 +214,12 @@ func (s *GameState) renderHelp() {
 	// Help lines
 	helpLines := []string{
 		"",
-		"  Space       Pause / Resume",
+		"  Space       Advance gen (manual) / Pause",
 		"  Enter       Toggle cell at cursor",
 		"  ↑ ↓ ← →    Move cursor",
 		"  c           Clear grid",
 		"  r           Randomize",
-		"  + / -       Speed up / down",
+		"  + / -       Speed up / down (1-15/s)",
 		"  p           Place pattern",
 		"  ? / h       Show this help",
 		"  q / Esc     Quit",
@@ -359,7 +370,10 @@ func drawStr(x, y int, text string, fg, bg termbox.Attribute) {
 	}
 }
 
-func statusText(running bool) string {
+func statusText(running bool, speed int) string {
+	if speed == 0 {
+		return "▶ Manual"
+	}
 	if running {
 		return "▶ Running"
 	}
@@ -377,21 +391,21 @@ func handleKeyEvent(ev termbox.Event, state *GameState) bool {
 		state.grid.Randomize()
 		state.generations = 0
 	case ev.Ch == '+':
-		if state.interval > 50*time.Millisecond {
-			state.interval /= 2
-			if state.interval < 100*time.Millisecond {
-				state.interval = 100 * time.Millisecond
-			}
+		if state.speed < 15 {
+			state.speed++
 		}
 	case ev.Ch == '-':
-		if state.interval < 5*time.Second {
-			state.interval *= 2
-			if state.interval > 5*time.Second {
-				state.interval = 5 * time.Second
-			}
+		if state.speed > 0 {
+			state.speed--
 		}
 	case ev.Key == termbox.KeySpace:
-		state.running = !state.running
+		if state.speed == 0 {
+			// Manual mode: advance one generation
+			state.grid.Evolve()
+			state.generations++
+		} else {
+			state.running = !state.running
+		}
 	case ev.Key == termbox.KeyArrowUp:
 		if state.cursorR > 0 {
 			state.cursorR--
@@ -447,11 +461,11 @@ func main() {
 		grid:         grid,
 		theme:        theme,
 		running:      true,
-		interval:     1 * time.Second,
+		speed:        3, // default 3 generations/second
 		nextColorIdx: 0,
 	}
 
-	tick := time.NewTicker(state.interval)
+	tick := time.NewTicker(state.speedInterval())
 	defer tick.Stop()
 
 	// Run PollEvent in a goroutine so the main loop can select on tick
@@ -467,7 +481,7 @@ func main() {
 	for {
 		select {
 		case <-tick.C:
-			if state.running && state.overlay == overlayNone {
+			if state.running && state.speed > 0 && state.overlay == overlayNone {
 				state.grid.Evolve()
 				state.generations++
 				state.Render()
@@ -490,7 +504,11 @@ func main() {
 				}
 				if ev.Ch == '+' || ev.Ch == '-' {
 					tick.Stop()
-					tick = time.NewTicker(state.interval)
+					if state.speed > 0 {
+						tick = time.NewTicker(state.speedInterval())
+					} else {
+						tick = time.NewTicker(time.Hour) // effectively disabled in manual mode
+					}
 				}
 			case termbox.EventResize:
 				w, h := termbox.Size()
