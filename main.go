@@ -24,6 +24,12 @@ type GameState struct {
 	generations int
 	interval    time.Duration // tick interval
 
+	// Theme
+	theme *Theme
+
+	// Pattern color tracking
+	nextColorIdx int // cycles through theme.PatternColors
+
 	// Overlay state
 	overlay     overlayMode
 	ovQuery     string
@@ -40,6 +46,24 @@ func (s *GameState) Population() int {
 		}
 	}
 	return pop
+}
+
+func (s *GameState) nextPatternColor() uint8 {
+	idx := uint8(s.nextColorIdx % len(s.theme.PatternColors))
+	s.nextColorIdx++
+	return idx + 1 // 1-based index into palette
+}
+
+func (s *GameState) cellFg(colorIdx uint8) termbox.Attribute {
+	switch colorIdx {
+	case cellDead:
+		return termbox.ColorDefault
+	case colorManual:
+		return s.theme.ManualCellFg
+	default:
+		paletteIdx := int(colorIdx-1) % len(s.theme.PatternColors)
+		return s.theme.PatternColors[paletteIdx]
+	}
 }
 
 func (s *GameState) Render() {
@@ -70,23 +94,18 @@ func (s *GameState) Render() {
 
 func (s *GameState) renderGame() {
 	w, h := termbox.Size()
+	t := s.theme
 
 	// ── Title bar (row 0) ──
-	titleFg, titleBg := termbox.ColorWhite, termbox.ColorBlue
-	for x := 0; x < w; x++ {
-		termbox.SetCell(x, 0, ' ', titleFg, titleBg)
-	}
-	title := " ● Game of Life ● "
-	drawStr((w-len(title))/2, 0, title, termbox.ColorYellow, titleBg)
+	s.drawBar(0, w, t.TitleFg, t.TitleBg, " ")
+	title := " ◆ Game of Life ◆ "
+	drawStr((w-len(title))/2, 0, title, t.TitleFg, t.TitleBg)
 
 	// ── Info bar (row 1) ──
-	infoFg, infoBg := termbox.ColorBlack, termbox.ColorBlue
-	for x := 0; x < w; x++ {
-		termbox.SetCell(x, 1, ' ', infoFg, infoBg)
-	}
-	info := fmt.Sprintf(" Gen: %-6d | %-8s | Pop: %-6d | Grid: %dx%d | Speed: %.1fs/gen ",
+	s.drawBar(1, w, t.InfoFg, t.InfoBg, " ")
+	info := fmt.Sprintf(" Gen: %-6d │ %-8s │ Pop: %-6d │ Grid: %dx%d │ Speed: %.1fs/gen ",
 		s.generations, statusText(s.running), s.Population(), s.grid.Rows(), s.grid.Cols(), s.interval.Seconds())
-	drawStr(1, 1, info, termbox.ColorWhite, infoBg)
+	drawStr(1, 1, info, t.InfoFg, t.InfoBg)
 
 	// ── Grid area (rows 2..h-2, cols 0..w-1) ──
 	gridStartY := 2
@@ -98,19 +117,26 @@ func (s *GameState) renderGame() {
 			var ch rune
 			var fg, bg termbox.Attribute
 
-			if s.grid.Cells(r, c) {
-				ch = '●'
-				fg = termbox.ColorWhite
-				bg = termbox.ColorBlue
+			colorIdx := s.grid.Color(r, c)
+			if colorIdx != cellDead {
+				ch = t.CellChar
+				fg = s.cellFg(colorIdx)
+				bg = termbox.ColorDefault
 			} else {
 				ch = ' '
 				fg = termbox.ColorDefault
 				bg = termbox.ColorDefault
 			}
 
+			// Cursor highlight (subtle, doesn't override cell color)
 			if r == s.cursorR && c == s.cursorC {
-				fg = termbox.ColorBlack
-				bg = termbox.ColorYellow
+				ch = '▓'
+				if colorIdx == cellDead {
+					fg = termbox.ColorYellow
+				} else {
+					fg = termbox.ColorYellow
+				}
+				bg = termbox.ColorDefault
 			}
 
 			termbox.SetCell(c, gridStartY+r, ch, fg, bg)
@@ -118,21 +144,25 @@ func (s *GameState) renderGame() {
 	}
 
 	// ── Status bar (row h-1) ──
-	statusFg, statusBg := termbox.ColorBlack, termbox.ColorCyan
-	for x := 0; x < w; x++ {
-		termbox.SetCell(x, h-1, ' ', statusFg, statusBg)
-	}
-	status := fmt.Sprintf(" Cursor: (%d,%-3d) | %d pattern(s) available | %s | ? for help ",
+	s.drawBar(h-1, w, t.StatusFg, t.StatusBg, " ")
+	status := fmt.Sprintf(" Cursor: (%d,%-3d) │ %d pattern(s) │ %s │ ? for help ",
 		s.cursorR, s.cursorC, len(patterns), statusText(s.running))
-	drawStr(1, h-1, status, termbox.ColorWhite, statusBg)
+	drawStr(1, h-1, status, t.StatusFg, t.StatusBg)
+}
+
+func (s *GameState) drawBar(y, w int, fg, bg termbox.Attribute, ch string) {
+	for x := 0; x < w; x++ {
+		termbox.SetCell(x, y, rune(ch[0]), fg, bg)
+	}
 }
 
 func (s *GameState) renderHelp() {
 	w, h := termbox.Size()
+	t := s.theme
 
 	// Dialog dimensions
-	dialogW := 52
-	dialogH := 16
+	dialogW := 56
+	dialogH := 18
 	if dialogW > w-2 {
 		dialogW = w - 2
 	}
@@ -145,52 +175,65 @@ func (s *GameState) renderHelp() {
 	// Draw dialog background
 	for y := y0; y < y0+dialogH; y++ {
 		for x := x0; x < x0+dialogW; x++ {
-			termbox.SetCell(x, y, ' ', termbox.ColorWhite, termbox.ColorCyan)
+			termbox.SetCell(x, y, ' ', t.DialogFg, t.DialogBg)
 		}
 	}
 
+	// Border
+	for x := x0; x < x0+dialogW; x++ {
+		termbox.SetCell(x, y0, '─', t.DialogFg, t.DialogBg)
+		termbox.SetCell(x, y0+dialogH-1, '─', t.DialogFg, t.DialogBg)
+	}
+	for y := y0; y < y0+dialogH; y++ {
+		termbox.SetCell(x0, y, '│', t.DialogFg, t.DialogBg)
+		termbox.SetCell(x0+dialogW-1, y, '│', t.DialogFg, t.DialogBg)
+	}
+	termbox.SetCell(x0, y0, '╭', t.DialogFg, t.DialogBg)
+	termbox.SetCell(x0+dialogW-1, y0, '╮', t.DialogFg, t.DialogBg)
+	termbox.SetCell(x0, y0+dialogH-1, '╰', t.DialogFg, t.DialogBg)
+	termbox.SetCell(x0+dialogW-1, y0+dialogH-1, '╯', t.DialogFg, t.DialogBg)
+
 	// Title
-	title := " Controls "
+	title := " ◆ Controls ◆ "
 	titleX := x0 + (dialogW-len(title))/2
 	for i, ch := range title {
-		termbox.SetCell(titleX+i, y0, ch, termbox.ColorBlack, termbox.ColorCyan)
+		termbox.SetCell(titleX+i, y0+1, ch, t.DialogFg, t.DialogBg)
 	}
 
 	// Help lines
 	helpLines := []string{
 		"",
-		"  Space     Pause / Resume",
-		"  Enter     Toggle cell at cursor",
-		"  ↑ ↓ ← →   Move cursor",
-		"  c         Clear grid",
-		"  r         Randomize",
-		"  + / -     Speed up / down",
-		"  p         Place pattern",
-		"  ? / h     Show this help",
-		"  q / Esc   Quit",
+		"  Space       Pause / Resume",
+		"  Enter       Toggle cell at cursor",
+		"  ↑ ↓ ← →    Move cursor",
+		"  c           Clear grid",
+		"  r           Randomize",
+		"  + / -       Speed up / down",
+		"  p           Place pattern",
+		"  ? / h       Show this help",
+		"  q / Esc     Quit",
 		"",
 	}
 
 	for i, line := range helpLines {
-		y := y0 + 2 + i
+		y := y0 + 3 + i
 		if y >= y0+dialogH-1 {
 			break
 		}
-		if i == len(helpLines)-2 {
-			drawStr(x0+2, y, line, termbox.ColorYellow, termbox.ColorCyan)
-		} else {
-			drawStr(x0+2, y, line, termbox.ColorWhite, termbox.ColorCyan)
+		for j, ch := range line {
+			termbox.SetCell(x0+2+j, y, ch, t.DialogFg, t.DialogBg)
 		}
 	}
 
 	// Footer
 	footer := " Press any key to close "
 	footerX := x0 + (dialogW-len(footer))/2
-	drawStr(footerX, y0+dialogH-1, footer, termbox.ColorBlack, termbox.ColorCyan)
+	drawStr(footerX, y0+dialogH-1, footer, t.DialogFg, t.DialogBg)
 }
 
 func (s *GameState) renderPatternOverlay() {
 	w, h := termbox.Size()
+	t := s.theme
 
 	// Filter patterns
 	var filtered []Pattern
@@ -207,15 +250,13 @@ func (s *GameState) renderPatternOverlay() {
 	}
 
 	// Header
-	header := " Place Pattern (type to filter, ↑↓ navigate, Enter place, Esc cancel) "
-	for x := 0; x < w; x++ {
-		termbox.SetCell(x, 0, ' ', termbox.ColorBlack, termbox.ColorCyan)
-	}
-	drawStr(1, 0, header, termbox.ColorWhite, termbox.ColorCyan)
+	header := " ◆ Place Pattern (type to filter, ↑↓ navigate, Enter place, Esc cancel) ◆ "
+	s.drawBar(0, w, t.StatusFg, t.StatusBg, " ")
+	drawStr(max(0, (w-len(header))/2), 0, header, t.StatusFg, t.StatusBg)
 
 	// Query line
-	queryText := " Filter: " + s.ovQuery + "_"
-	drawStr(2, 2, queryText, termbox.ColorYellow, termbox.ColorDefault)
+	queryText := " Filter: " + s.ovQuery + "▌"
+	drawStr(2, 2, queryText, t.ManualCellFg, termbox.ColorDefault)
 
 	// Pattern list
 	listStart := 4
@@ -241,7 +282,7 @@ func (s *GameState) renderPatternOverlay() {
 		if i == s.ovHighlight {
 			fg = termbox.ColorBlack
 			bg = termbox.ColorYellow
-			text = ">> " + filtered[i].Name
+			text = "▸▸ " + filtered[i].Name
 		} else {
 			fg = termbox.ColorWhite
 			bg = termbox.ColorDefault
@@ -250,11 +291,9 @@ func (s *GameState) renderPatternOverlay() {
 	}
 
 	// Footer
-	footer := fmt.Sprintf(" %d pattern(s) | Cursor: (%d,%d) ", len(filtered), s.cursorR, s.cursorC)
-	for x := 0; x < w; x++ {
-		termbox.SetCell(x, h-1, ' ', termbox.ColorBlack, termbox.ColorCyan)
-	}
-	drawStr(1, h-1, footer, termbox.ColorWhite, termbox.ColorCyan)
+	footer := fmt.Sprintf(" %d pattern(s) │ Cursor: (%d,%d) ", len(filtered), s.cursorR, s.cursorC)
+	s.drawBar(h-1, w, t.StatusFg, t.StatusBg, " ")
+	drawStr(1, h-1, footer, t.StatusFg, t.StatusBg)
 }
 
 func (s *GameState) handleOverlayEvent(ev termbox.Event) *Pattern {
@@ -388,17 +427,28 @@ func main() {
 	}
 	defer termbox.Close()
 
+	// Detect terminal capabilities and build theme
+	theme := NewTheme()
+
+	// Set output mode based on detected capabilities
+	if theme.TrueColor {
+		termbox.SetOutputMode(termbox.OutputRGB)
+	} else {
+		termbox.SetOutputMode(termbox.Output256)
+	}
+
 	w, h := termbox.Size()
 	gridCols := w
 	gridRows := h - 4
 
 	grid := NewGrid(gridRows, gridCols)
-	grid.Randomize()
 
 	state := &GameState{
-		grid:     grid,
-		running:  true,
-		interval: 1 * time.Second,
+		grid:         grid,
+		theme:        theme,
+		running:      true,
+		interval:     1 * time.Second,
+		nextColorIdx: 0,
 	}
 
 	tick := time.NewTicker(state.interval)
@@ -428,7 +478,8 @@ func main() {
 				if state.overlay != overlayNone {
 					pattern := state.handleOverlayEvent(ev)
 					if pattern != nil {
-						PlacePattern(state.grid, state.cursorR, state.cursorC, *pattern)
+						colorIdx := state.nextPatternColor()
+						PlacePattern(state.grid, state.cursorR, state.cursorC, *pattern, colorIdx)
 						state.generations = 0
 					}
 					state.Render()
@@ -466,4 +517,11 @@ func fuzzyMatch(query, name string) bool {
 		}
 	}
 	return i == len(query)
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

@@ -65,13 +65,13 @@ var patterns = []Pattern{
 	}},
 }
 
-// PlacePattern places a pattern at (r, c) on the grid.
-func PlacePattern(g *Grid, r, c int, p Pattern) {
+// PlacePattern places a pattern at (r, c) on the grid with the given color index.
+func PlacePattern(g *Grid, r, c int, p Pattern, colorIdx uint8) {
 	for _, cell := range p.Cells {
 		gr := r + cell[0]
 		gc := c + cell[1]
 		if gr >= 0 && gr < g.Rows() && gc >= 0 && gc < g.Cols() {
-			g.Set(gr, gc)
+			g.SetColor(gr, gc, colorIdx)
 		}
 	}
 }
