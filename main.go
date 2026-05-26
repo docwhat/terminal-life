@@ -139,15 +139,11 @@ func (s *GameState) renderGame() {
 				bg = termbox.ColorDefault
 			}
 
-			// Cursor highlight (subtle, doesn't override cell color)
+			// Cursor highlight
 			if r == s.cursorR && c == s.cursorC {
 				ch = '◉'
-				if colorIdx == cellDead {
-					fg = termbox.ColorYellow
-				} else {
-					fg = termbox.ColorYellow
-				}
-				bg = termbox.ColorDefault
+				fg = termbox.ColorWhite
+				bg = termbox.ColorBlue
 			}
 
 			termbox.SetCell(c, gridStartY+r, ch, fg, bg)
@@ -291,11 +287,11 @@ func (s *GameState) renderPatternOverlay() {
 		var fg, bg termbox.Attribute
 		text := "  " + filtered[i].Name
 		if i == s.ovHighlight {
-			fg = termbox.ColorBlack
-			bg = termbox.ColorYellow
+			fg = t.StatusBg
+			bg = t.ManualCellFg
 			text = "▸▸ " + filtered[i].Name
 		} else {
-			fg = termbox.ColorWhite
+			fg = t.DialogFg
 			bg = termbox.ColorDefault
 		}
 		drawStr(2, y, text, fg, bg)
