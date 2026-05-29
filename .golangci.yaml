@@ -1,0 +1,53 @@
+version: "2"
+linters:
+  default: fast
+  enable:
+    - asciicheck
+    - bidichk
+    - copyloopvar
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - dupword
+    - embeddedstructfieldcheck
+    - funcorder
+    - gocheckcompilerdirectives
+    - gochecknoinits
+    - gocognit
+    - gocyclo
+    - godoclint
+    - godot
+    - godox
+    - goheader
+    - gomoddirectives
+    - gomodguard_v2
+    - goprintffuncname
+    - grouper
+    - inamedparam
+    - ineffassign
+    - interfacebloat
+    - iotamixing
+    - maintidx
+    - misspell
+    - nakedret
+    - nestif
+    - nlreturn
+    - nolintlint
+    - nosprintfhostport
+    - predeclared
+    - promlinter
+    - tagalign
+    - testableexamples
+    - testpackage
+    - unqueryvet
+    - usestdlibvars
+    - whitespace
+    - wsl_v5
+  disable:
+    - cyclop
+    - mnd
+    - lll
+    - funlen
+    - wsl
+    - gomodguard
