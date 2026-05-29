@@ -114,8 +114,8 @@ func (s *GameState) renderGame() {
 
 	// ── Info bar (row 1) ──
 	s.drawBar(1, w, t.InfoFg, t.InfoBg, " ")
-	info := fmt.Sprintf(" Gen: %-6d │ %-8s │ Pop: %-6d │ Grid: %dx%d │ Speed: %-8s ",
-		s.generations, statusText(s.running, s.speed), s.Population(), s.grid.Rows(), s.grid.Cols(), s.speedText())
+	info := fmt.Sprintf(" Gen: %-6d │ %-8s │ Pop: %-6d │ Grid: %dx%d │ Speed: %-8s │ Color: %s ",
+		s.generations, statusText(s.running, s.speed), s.Population(), s.grid.Rows(), s.grid.Cols(), s.speedText(), colorModeText(t))
 	drawStr(1, 1, info, t.InfoFg, t.InfoBg)
 
 	// ── Grid area (rows 2..h-2, cols 0..w-1) ──
@@ -374,6 +374,13 @@ func statusText(running bool, speed int) string {
 		return "▶ Running"
 	}
 	return "❚❚ Paused"
+}
+
+func colorModeText(t *Theme) string {
+	if t.TrueColor {
+		return "RGB"
+	}
+	return "256"
 }
 
 func handleKeyEvent(ev termbox.Event, state *GameState) bool {
