@@ -225,6 +225,155 @@ func TestBlinkerOscillator(t *testing.T) {
 	}
 }
 
+func TestCellAgeOnBirth(t *testing.T) {
+	g := NewGrid(3, 3)
+
+	// Birth by manual toggle
+	g.Toggle(1, 1)
+
+	if age := g.Age(1, 1); age != 0 {
+		t.Errorf("Expected age 0 on birth, got %d", age)
+	}
+
+	// Birth by Set
+	g.Set(0, 0)
+
+	if age := g.Age(0, 0); age != 0 {
+		t.Errorf("Expected age 0 after Set, got %d", age)
+	}
+
+	// Birth by SetColor
+	g.SetColor(2, 2, 5)
+
+	if age := g.Age(2, 2); age != 0 {
+		t.Errorf("Expected age 0 after SetColor, got %d", age)
+	}
+}
+
+func TestCellAgeIncrementsOnSurvival(t *testing.T) {
+	g := NewGrid(3, 3)
+
+	// Set up a cell with exactly 2 neighbors (survival)
+	g.Set(1, 1) // cell to track
+	g.Set(0, 0)
+	g.Set(0, 1)
+
+	if age := g.Age(1, 1); age != 0 {
+		t.Errorf("Expected initial age 0, got %d", age)
+	}
+
+	g.Evolve()
+
+	// Cell survived, age should be 1
+	if age := g.Age(1, 1); age != 1 {
+		t.Errorf("Expected age 1 after 1 generation, got %d", age)
+	}
+
+	// Set up neighbors again for next tick
+	g.Set(0, 0)
+	g.Set(0, 1)
+	g.Evolve()
+
+	// Cell survived again, age should be 2
+	if age := g.Age(1, 1); age != 2 {
+		t.Errorf("Expected age 2 after 2 generations, got %d", age)
+	}
+}
+
+func TestCellAgeResetsOnDeathAndRebirth(t *testing.T) {
+	g := NewGrid(3, 3)
+
+	// Block pattern at (0,0)-(1,1) — stable, all cells survive forever
+	g.Set(0, 0)
+	g.Set(0, 1)
+	g.Set(1, 0)
+	g.Set(1, 1)
+
+	// Kill (0,0) by removing neighbors (underpopulation)
+	g.cells[0][1] = cellDead
+	g.cells[1][0] = cellDead
+	g.cells[1][1] = cellDead
+	g.Evolve()
+
+	// (0,0) should be dead
+	if g.Get(0, 0) {
+		t.Error("Expected (0,0) to be dead")
+	}
+
+	// Now rebirth (0,0) with 3 neighbors
+	g.Set(0, 1)
+	g.Set(1, 0)
+	g.Set(1, 1)
+	g.Evolve()
+
+	if !g.Get(0, 0) {
+		t.Error("Expected (0,0) to be reborn")
+	}
+
+	if age := g.Age(0, 0); age != 0 {
+		t.Errorf("Expected age 0 after rebirth, got %d", age)
+	}
+}
+
+func TestResetClearsAges(t *testing.T) {
+	g := NewGrid(3, 3)
+	g.Set(1, 1)
+	g.Set(0, 0)
+	g.Set(0, 1)
+	g.Evolve()
+
+	// Age should be 1
+	if age := g.Age(1, 1); age != 1 {
+		t.Errorf("Expected age 1, got %d", age)
+	}
+
+	g.Reset()
+
+	if g.Get(1, 1) {
+		t.Error("Reset should clear cells")
+	}
+
+	if age := g.Age(1, 1); age != 0 {
+		t.Errorf("Reset should clear ages, got %d", age)
+	}
+}
+
+func TestRandomizeResetsAges(t *testing.T) {
+	g := NewGrid(5, 5)
+	// Set up some cells with non-zero ages
+	for r := 0; r < 5; r++ {
+		for c := 0; c < 5; c++ {
+			g.cells[r][c] = colorManual
+			g.ages[r][c] = 10
+		}
+	}
+
+	g.Randomize()
+
+	for r := 0; r < 5; r++ {
+		for c := 0; c < 5; c++ {
+			if g.cells[r][c] != cellDead && g.ages[r][c] != 0 {
+				t.Errorf("Randomize should reset ages for alive cells, got age %d at (%d,%d)", g.ages[r][c], r, c)
+			}
+		}
+	}
+}
+
+func TestResizePreservesAges(t *testing.T) {
+	g := NewGrid(3, 3)
+	g.Set(1, 1)
+	g.Set(0, 0)
+	g.Set(0, 1)
+	g.Evolve()
+	originalAge := g.Age(1, 1)
+
+	g.Resize(5, 5)
+
+	if age := g.Age(1, 1); age != originalAge {
+		t.Errorf("Resize should preserve ages, expected %d, got %d", originalAge, age)
+	}
+}
+
 func TestDominantNeighborColor(t *testing.T) {
 	g := NewGrid(3, 3)
 	// Surround (1,1) with mostly color 3, one color 5

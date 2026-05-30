@@ -133,18 +133,161 @@ func (s *GameState) calcScroll(visible int) int {
 	return scroll
 }
 
-// cellFg returns the foreground color for a cell given its color index.
-func (s *GameState) cellFg(colorIdx uint8) tcell.Color {
+// cellFg returns the foreground color for a cell given its color index and age.
+// For non-pattern cells (colorManual), the color fades with age while keeping the same hue.
+// For pattern cells, the color is fixed from the pattern palette.
+func (s *GameState) cellFg(colorIdx uint8, age int) tcell.Color {
 	switch colorIdx {
 	case cellDead:
 		return s.theme.Background
 	case colorManual:
-		return s.theme.ManualCellFg
+		return s.fadeColor(s.theme.ManualCellFg, age)
 	default:
 		paletteIdx := int(colorIdx-1) % len(s.theme.PatternColors)
 
 		return s.theme.PatternColors[paletteIdx]
 	}
+}
+
+// fadeColor returns a faded version of the input color based on age.
+// Age 0 is full brightness; higher ages fade toward dim while preserving hue.
+func (s *GameState) fadeColor(color tcell.Color, age int) tcell.Color {
+	r, g, b := color.RGB()
+
+	h, sat, val := rgbToHSV(float64(r), float64(g), float64(b))
+
+	// Fade parameters: cells fade from bright to dim over maxAge generations.
+	const maxAge = 20
+
+	const minVal = 0.3 // minimum brightness (dim)
+
+	// Clamp age to maxAge for the fade curve.
+
+	effectiveAge := age
+
+	if effectiveAge > maxAge {
+		effectiveAge = maxAge
+	}
+
+	// Linear fade: value goes from 1.0 down to minVal over maxAge generations.
+	fade := 1.0 - (float64(effectiveAge)/float64(maxAge))*(1.0-minVal)
+	newVal := val * fade
+
+	// Clamp value to [0, 1].
+	if newVal > 1.0 {
+		newVal = 1.0
+	}
+
+	if newVal < 0 {
+		newVal = 0
+	}
+
+	newR, newG, newB := hsvToRGB(h, sat, newVal)
+
+	return tcell.NewRGBColor(int32(newR), int32(newG), int32(newB))
+}
+
+// rgbToHSV converts RGB values (0-255) to HSV (h in degrees, s and v in 0-1).
+func rgbToHSV(r, g, b float64) (float64, float64, float64) {
+	rNorm := r / 255.0
+	gNorm := g / 255.0
+	bNorm := b / 255.0
+
+	maxC := rNorm
+
+	if gNorm > maxC {
+		maxC = gNorm
+	}
+
+	if bNorm > maxC {
+		maxC = bNorm
+	}
+
+	minC := rNorm
+
+	if gNorm < minC {
+		minC = gNorm
+	}
+
+	if bNorm < minC {
+		minC = bNorm
+	}
+
+	d := maxC - minC
+
+	// Hue
+	var h float64
+
+	if maxC != minC {
+		switch maxC {
+		case rNorm:
+			h = 60 * (1.0 + (gNorm-bNorm)/d)
+		case gNorm:
+			h = 60 * (2.0 + (bNorm-rNorm)/d)
+		case bNorm:
+			h = 60 * (4.0 + (rNorm-gNorm)/d)
+		}
+	}
+
+	// Value
+	v := maxC
+
+	// Saturation
+	var s float64
+
+	if maxC != 0 {
+		s = d / maxC
+	}
+
+	return h, s, v
+}
+
+// hsvToRGB converts HSV (h in degrees, s and v in 0-1) to RGB (0-255).
+func hsvToRGB(h, s, v float64) (uint8, uint8, uint8) {
+	if s == 0 {
+		c := uint8(v * 255.0)
+
+		return c, c, c
+	}
+
+	// Normalize hue to [0, 360).
+	if h < 0 {
+		h += 360
+	}
+
+	h = h - 360.0*(h/360.0)
+
+	c := v * s
+	x := c * (1.0 - absF(h/60.0-2.0*(h/60.0)-1.0))
+	m := v - c
+
+	var r, g, b float64
+
+	switch {
+	case h < 60:
+		r, g, b = c, x, 0
+	case h < 120:
+		r, g, b = x, c, 0
+	case h < 180:
+		r, g, b = 0, c, x
+	case h < 240:
+		r, g, b = 0, x, c
+	case h < 300:
+		r, g, b = x, 0, c
+	default:
+		r, g, b = c, 0, x
+	}
+
+	return uint8((r + m) * 255.0), uint8((g + m) * 255.0), uint8((b + m) * 255.0)
+}
+
+// absF returns the absolute value of a float64.
+func absF(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+
+	return x
 }
 
 // speedText returns a human-readable speed string.
@@ -346,6 +489,7 @@ func (s *GameState) renderGame() {
 		for c := 0; c < w && c < s.grid.Cols(); c++ {
 			colorIdx := s.grid.Color(r, c)
 			isDuck := s.grid.IsDuck(r, c)
+			age := s.grid.Age(r, c)
 
 			var ch rune
 
@@ -358,7 +502,7 @@ func (s *GameState) renderGame() {
 					ch = t.CellChar
 				}
 
-				fg = s.cellFg(colorIdx)
+				fg = s.cellFg(colorIdx, age)
 				bg = t.Background
 			} else {
 				ch = ' '
