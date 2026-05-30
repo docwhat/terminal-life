@@ -39,6 +39,13 @@ func builtInThemes() []*Theme {
 	}
 }
 
+// defaultTheme returns the default theme used when none is specified.
+func defaultTheme() *Theme {
+	themes := builtInThemes()
+
+	return themes[0]
+}
+
 // findTheme returns the theme with the given name, or nil.
 func findTheme(name string) *Theme {
 	for _, t := range builtInThemes() {

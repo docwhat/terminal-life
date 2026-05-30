@@ -711,7 +711,7 @@ func fuzzyMatch(query, name string) bool {
 func main() {
 	theme := parseThemeFromArgs()
 	if theme == nil {
-		return
+		theme = defaultTheme()
 	}
 
 	screen := initScreen(theme)
