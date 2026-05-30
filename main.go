@@ -971,12 +971,10 @@ func handleKeyEventEvent(ev *tcell.EventKey, state *GameState, screen tcell.Scre
 	}
 
 	if ev.Rune() == '+' || ev.Rune() == '-' {
-		tick.Stop()
-
 		if state.speed > 0 {
-			tick = time.NewTicker(state.speedInterval())
+			tick.Reset(state.speedInterval())
 		} else {
-			tick = time.NewTicker(time.Hour) // effectively disabled in manual mode
+			tick.Reset(time.Hour) // effectively disabled in manual mode
 		}
 	}
 
