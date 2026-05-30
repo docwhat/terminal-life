@@ -83,6 +83,15 @@ func (s *GameState) Render() {
 	s.screen.Show()
 }
 
+// handleResize resizes the grid to fit the new screen dimensions.
+func (s *GameState) handleResize(screen tcell.Screen) {
+	w, h := screen.Size()
+	gridCols := w
+	gridRows := h - 4
+
+	s.grid.Resize(gridRows, gridCols)
+}
+
 // drawBar draws a full-width bar at row y.
 func (s *GameState) drawBar(y, w int, fg, bg tcell.Color, ch string) {
 	style := tcell.StyleDefault.Foreground(fg).Background(bg)
@@ -103,6 +112,7 @@ func (s *GameState) clampHighlight(n int) {
 	if s.ovHighlight >= n {
 		s.ovHighlight = n - 1
 	}
+
 	if s.ovHighlight < 0 {
 		s.ovHighlight = 0
 	}
@@ -115,6 +125,7 @@ func (s *GameState) calcScroll(visible int) int {
 	if s.ovHighlight >= scroll+visible {
 		scroll = s.ovHighlight - visible + 1
 	}
+
 	if s.ovHighlight < scroll {
 		scroll = s.ovHighlight
 	}
@@ -268,6 +279,7 @@ func (s *GameState) filterPatterns() []Pattern {
 // filterThemes returns themes matching the current query.
 func (s *GameState) filterThemes() []*Theme {
 	allThemes := builtInThemes()
+
 	var filtered []*Theme
 
 	for _, th := range allThemes {
@@ -314,6 +326,7 @@ func (s *GameState) renderGame() {
 
 	// ── Title bar (row 0) ──
 	s.drawBar(0, w, t.TitleFg, t.TitleBg, " ")
+
 	title := " ◆ Game of Life ◆ "
 	drawStr(s.screen, (w-len(title))/2, 0, title, t.TitleFg, t.TitleBg)
 
@@ -335,6 +348,7 @@ func (s *GameState) renderGame() {
 			isDuck := s.grid.IsDuck(r, c)
 
 			var ch rune
+
 			var fg, bg tcell.Color
 
 			if colorIdx != cellDead {
@@ -343,6 +357,7 @@ func (s *GameState) renderGame() {
 				} else {
 					ch = t.CellChar
 				}
+
 				fg = s.cellFg(colorIdx)
 				bg = t.Background
 			} else {
@@ -386,6 +401,7 @@ func (s *GameState) renderHelp() {
 	if dialogH > h-2 {
 		dialogH = h - 2
 	}
+
 	x0 := (w - dialogW) / 2
 	y0 := (h - dialogH) / 2
 
@@ -466,6 +482,7 @@ func (s *GameState) renderPatternOverlay() {
 		y := listStart + (i - scroll)
 
 		var fg, bg tcell.Color
+
 		text := "  " + filtered[i].Name
 
 		if i == s.ovHighlight {
@@ -519,6 +536,7 @@ func (s *GameState) renderThemeOverlay() {
 		y := listStart + (i - scroll)
 
 		var fg, bg tcell.Color
+
 		text := "  " + filtered[i].Name
 
 		if i == s.ovHighlight {
@@ -696,22 +714,39 @@ func main() {
 		return
 	}
 
-	// Init tcell screen
+	screen := initScreen(theme)
+	defer screen.Fini()
+
+	state := initState(screen, theme)
+
+	tick := time.NewTicker(state.speedInterval())
+	defer tick.Stop()
+
+	state.Render()
+
+	runEventLoop(state, screen, tick)
+}
+
+// initScreen creates and initializes a tcell screen with the given theme.
+func initScreen(theme *Theme) tcell.Screen {
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		fmt.Println("Failed to create screen:", err)
-
-		return
+		os.Exit(1)
 	}
+
 	if err := screen.Init(); err != nil {
 		fmt.Println("Failed to init screen:", err)
-
-		return
+		os.Exit(1)
 	}
-	defer screen.Fini()
 
 	screen.SetStyle(tcell.StyleDefault.Background(theme.Background).Foreground(theme.Background))
 
+	return screen
+}
+
+// initState creates the GameState with an initialized grid.
+func initState(screen tcell.Screen, theme *Theme) *GameState {
 	w, h := screen.Size()
 	gridCols := w
 	gridRows := h - 4
@@ -719,7 +754,10 @@ func main() {
 	grid := NewGrid(gridRows, gridCols)
 	grid.Randomize()
 
-	state := &GameState{
+	// Seed random for duck mutations
+	rand.Seed(time.Now().UnixNano())
+
+	return &GameState{
 		screen:       screen,
 		grid:         grid,
 		theme:        theme,
@@ -727,15 +765,10 @@ func main() {
 		speed:        3,
 		nextColorIdx: 0,
 	}
+}
 
-	// Seed random for duck mutations
-	rand.Seed(time.Now().UnixNano())
-
-	tick := time.NewTicker(state.speedInterval())
-	defer tick.Stop()
-
-	state.Render()
-
+// runEventLoop processes screen events until the user quits.
+func runEventLoop(state *GameState, screen tcell.Screen, tick *time.Ticker) {
 	// Event channel from PollEvent goroutine
 	eventCh := make(chan tcell.Event, 1)
 
@@ -748,64 +781,85 @@ func main() {
 	for {
 		select {
 		case <-tick.C:
-			if state.running && state.speed > 0 && state.overlay == overlayNone {
-				state.grid.Evolve()
-				state.generations++
-				state.Render()
-			}
+			handleTick(state)
 		case ev := <-eventCh:
-			switch ev := ev.(type) {
-			case *tcell.EventKey:
-				if state.overlay != overlayNone {
-					result := state.handleOverlayEvent(ev)
-
-					switch v := result.(type) {
-					case *Pattern:
-
-						if v != nil {
-							colorIdx := state.nextPatternColor()
-							PlacePattern(state.grid, state.cursorR, state.cursorC, *v, colorIdx)
-							state.generations = 0
-						}
-					case *Theme:
-						if v != nil {
-							state.theme = v
-							screen.SetStyle(tcell.StyleDefault.Background(v.Background).Foreground(v.Background))
-						}
-					}
-
-					state.Render()
-
-					continue
-				}
-
-				if handleKeyEvent(ev, state) {
-					return
-				}
-				if ev.Rune() == '+' || ev.Rune() == '-' {
-					tick.Stop()
-
-					if state.speed > 0 {
-						tick = time.NewTicker(state.speedInterval())
-					} else {
-						tick = time.NewTicker(time.Hour) // effectively disabled in manual mode
-					}
-				}
-
-				state.Render()
-
-			case *tcell.EventResize:
-				w, h := screen.Size()
-				gridCols := w
-				gridRows := h - 4
-				state.grid.Resize(gridRows, gridCols)
-				state.Render()
-
-			case *tcell.EventInterrupt:
-				return
-			case *tcell.EventError:
+			if !handleScreenEvent(ev, state, screen, tick) {
 				return
 			}
 		}
 	}
+}
+
+// handleTick advances the simulation if running.
+func handleTick(state *GameState) {
+	if state.running && state.speed > 0 && state.overlay == overlayNone {
+		state.grid.Evolve()
+		state.generations++
+		state.Render()
+	}
+}
+
+// handleScreenEvent processes a single screen event. Returns false to quit.
+func handleScreenEvent(ev tcell.Event, state *GameState, screen tcell.Screen, tick *time.Ticker) bool {
+	switch ev := ev.(type) {
+	case *tcell.EventKey:
+		return handleKeyEventEvent(ev, state, screen, tick)
+	case *tcell.EventResize:
+		state.handleResize(screen)
+		state.Render()
+	case *tcell.EventInterrupt:
+		return false
+	case *tcell.EventError:
+		return false
+	}
+
+	return true
+}
+
+// handleKeyEventEvent processes a key event. Returns false to quit.
+func handleKeyEventEvent(ev *tcell.EventKey, state *GameState, screen tcell.Screen, tick *time.Ticker) bool {
+	if state.overlay != overlayNone {
+		return handleOverlayKeyEvent(ev, state, screen)
+	}
+
+	if handleKeyEvent(ev, state) {
+		return false
+	}
+
+	if ev.Rune() == '+' || ev.Rune() == '-' {
+		tick.Stop()
+
+		if state.speed > 0 {
+			tick = time.NewTicker(state.speedInterval())
+		} else {
+			tick = time.NewTicker(time.Hour) // effectively disabled in manual mode
+		}
+	}
+
+	state.Render()
+
+	return true
+}
+
+// handleOverlayKeyEvent processes a key event while an overlay is active.
+func handleOverlayKeyEvent(ev *tcell.EventKey, state *GameState, screen tcell.Screen) bool {
+	result := state.handleOverlayEvent(ev)
+
+	switch v := result.(type) {
+	case *Pattern:
+		if v != nil {
+			colorIdx := state.nextPatternColor()
+			PlacePattern(state.grid, state.cursorR, state.cursorC, *v, colorIdx)
+			state.generations = 0
+		}
+	case *Theme:
+		if v != nil {
+			state.theme = v
+			screen.SetStyle(tcell.StyleDefault.Background(v.Background).Foreground(v.Background))
+		}
+	}
+
+	state.Render()
+
+	return true
 }
