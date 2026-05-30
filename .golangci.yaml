@@ -51,3 +51,17 @@ linters:
     - funlen
     - wsl
     - gomodguard
+  settings:
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/gdamore/tcell/v2
+            - github.com/gdamore/encoding
+            - github.com/lucasb-eyer/go-colorful
+            - github.com/rivo/uniseg
+    godoclint:
+      no-since-responsible: true
+    gocognit:
+      min-complexity: 30

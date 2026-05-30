@@ -9,6 +9,7 @@ func TestNewGrid(t *testing.T) {
 	if g == nil || len(g.cells) != 5 || len(g.cells[0]) != 5 {
 		t.Fatal("NewGrid did not create correct dimensions")
 	}
+
 	for r := 0; r < 5; r++ {
 		for c := 0; c < 5; c++ {
 			if g.cells[r][c] != cellDead {
@@ -25,15 +26,18 @@ func TestGetAndSet(t *testing.T) {
 	}
 
 	g.Set(2, 2)
+
 	if !g.Get(2, 2) {
 		t.Error("Expected cell to be alive after Set")
 	}
+
 	if g.cells[2][2] != colorManual {
 		t.Errorf("Expected Set to use colorManual, got %d", g.cells[2][2])
 	}
 
 	g.cells[2][2] = cellDead
 	g.Set(2, 2)
+
 	if !g.Get(2, 2) {
 		t.Error("Set should enable cell")
 	}
@@ -42,9 +46,11 @@ func TestGetAndSet(t *testing.T) {
 func TestSetColor(t *testing.T) {
 	g := NewGrid(5, 5)
 	g.SetColor(2, 2, 3)
+
 	if !g.Get(2, 2) {
 		t.Error("Expected cell to be alive after SetColor")
 	}
+
 	if g.Color(2, 2) != 3 {
 		t.Errorf("Expected color 3, got %d", g.Color(2, 2))
 	}
@@ -55,11 +61,15 @@ func TestToggle(t *testing.T) {
 	if g.Get(1, 1) {
 		t.Error("Expected dead initially")
 	}
+
 	g.Toggle(1, 1)
+
 	if !g.Get(1, 1) {
 		t.Error("Expected alive after first Toggle")
 	}
+
 	g.Toggle(1, 1)
+
 	if g.Get(1, 1) {
 		t.Error("Expected dead after second Toggle")
 	}
@@ -82,12 +92,14 @@ func TestCountNeighbors(t *testing.T) {
 	g2.Set(0, 0)
 	g2.Set(0, 1)
 	g2.Set(1, 0)
+
 	if n := g2.CountNeighbors(0, 0); n != 2 {
 		t.Errorf("Expected 2 neighbors for corner (0,0), got %d", n)
 	}
 
 	// Center in 3x3 with all neighbors set
 	g3 := NewGrid(3, 3)
+
 	for r := 0; r < 3; r++ {
 		for c := 0; c < 3; c++ {
 			if r != 1 || c != 1 {
@@ -95,6 +107,7 @@ func TestCountNeighbors(t *testing.T) {
 			}
 		}
 	}
+
 	if n := g3.CountNeighbors(1, 1); n != 8 {
 		t.Errorf("Expected 8 neighbors for center (1,1), got %d", n)
 	}
@@ -106,6 +119,7 @@ func TestEvolveSurvivalAndReproduction(t *testing.T) {
 	g.Set(1, 2) // Cell to test
 	g.Set(0, 1)
 	g.Set(1, 1) // Two neighbors
+
 	if got := g.CountNeighbors(0, 0); got != 2 {
 		t.Errorf("CountNeighbors(0,0) = %d; want 2", got)
 	}
@@ -116,6 +130,7 @@ func TestEvolveSurvivalAndReproduction(t *testing.T) {
 	g3.SetColor(1, 0, 5)
 	g3.SetColor(2, 1, 5)
 	g3.Evolve()
+
 	if !g3.Get(1, 1) {
 		t.Error("Expected cell (1,1) to be born")
 	}
@@ -123,6 +138,7 @@ func TestEvolveSurvivalAndReproduction(t *testing.T) {
 	if g3.Color(1, 1) != 5 {
 		t.Errorf("Expected born cell to inherit color 5, got %d", g3.Color(1, 1))
 	}
+
 	if g3.Get(0, 1) {
 		t.Error("Expected cell (0,1) to die")
 	}
@@ -134,6 +150,7 @@ func TestEvolveUnderpopulationAndOverpopulation(t *testing.T) {
 	g.Set(1, 1)
 	g.Set(0, 1)
 	g.Evolve()
+
 	if g.Get(1, 1) {
 		t.Error("Expected death from underpopulation (1 neighbor)")
 	}
@@ -146,6 +163,7 @@ func TestEvolveUnderpopulationAndOverpopulation(t *testing.T) {
 	g2.Set(0, 3)
 	g2.Set(1, 1)
 	g2.Evolve()
+
 	if g2.Get(1, 2) {
 		t.Error("Expected death from overpopulation (4 neighbors)")
 	}
@@ -174,6 +192,7 @@ func TestReset(t *testing.T) {
 	g := NewGrid(5, 5)
 	g.Set(2, 2)
 	g.Reset()
+
 	if g.Get(2, 2) {
 		t.Error("Reset should clear all cells")
 	}
@@ -190,6 +209,7 @@ func TestBlinkerOscillator(t *testing.T) {
 	if !g.Get(2, 1) || !g.Get(2, 2) || !g.Get(2, 3) {
 		t.Error("Vertical blinker should have evolved to horizontal")
 	}
+
 	if g.Get(1, 2) || g.Get(3, 2) {
 		t.Error("Original vertical cells should be dead")
 	}
@@ -199,6 +219,7 @@ func TestBlinkerOscillator(t *testing.T) {
 	if g.Get(2, 1) || g.Get(2, 3) {
 		t.Error("Horizontal blinker should have reverted to vertical")
 	}
+
 	if !g.Get(1, 2) || !g.Get(3, 2) {
 		t.Error("Missing cells in reverted vertical blinker")
 	}

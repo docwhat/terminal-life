@@ -1,159 +1,279 @@
 package main
 
-import (
-	"os"
-	"strconv"
-	"strings"
+import "github.com/gdamore/tcell/v2"
 
-	"github.com/nsf/termbox-go"
-)
-
-// Theme holds terminal capability flags and color attributes.
+// Theme defines all colors used in the UI.
 type Theme struct {
-	TrueColor bool
-	DarkBg    bool
+	Name string
 
 	// UI chrome
-	TitleFg, TitleBg   termbox.Attribute
-	InfoFg, InfoBg     termbox.Attribute
-	StatusFg, StatusBg termbox.Attribute
-	DialogFg, DialogBg termbox.Attribute
+	TitleFg, TitleBg   tcell.Color
+	InfoFg, InfoBg     tcell.Color
+	StatusFg, StatusBg tcell.Color
+	DialogFg, DialogBg tcell.Color
 
 	// Cell rendering
-	CellChar      rune                // character used for alive cells
-	ManualCellFg  termbox.Attribute   // color for manually toggled cells
-	PatternColors []termbox.Attribute // palette cycled per pattern placement
+	CellChar      rune
+	ManualCellFg  tcell.Color
+	PatternColors []tcell.Color
+
+	// Background
+	Background tcell.Color
 }
 
-// NewTheme detects terminal capabilities and builds a color theme.
-func NewTheme() *Theme {
-	t := &Theme{
-		DarkBg:    true, // default assumption
-		TrueColor: false,
-		CellChar:  '●',
+// builtInThemes returns all pre-defined themes.
+func builtInThemes() []*Theme {
+	return []*Theme{
+		themeGruvboxDark(),
+		themeGruvboxLight(),
+		themeMonokai(),
+		themeDracula(),
+		themeTomorrow(),
+		themeTomorrowNight(),
+		themeNord(),
+		themeSolarizedDark(),
+		themeSolarizedLight(),
+		themeOneDark(),
+		themeCatppuccinMocha(),
+		themeCatppuccinLatte(),
 	}
-
-	// ── Truecolor detection ──
-	colorterm := os.Getenv("COLORTERM")
-	t.TrueColor = strings.Contains(colorterm, "24bit") || strings.Contains(colorterm, "truecolor")
-
-	// ── Background brightness detection ──
-	t.DarkBg = detectDarkBackground()
-
-	// ── Build palette ──
-	if t.TrueColor {
-		t.buildTruecolorPalette()
-	} else {
-		t.build256Palette()
-	}
-
-	return t
 }
 
-// detectDarkBackground checks environment hints for a light terminal theme.
-func detectDarkBackground() bool {
-	// Check COLORFGBG (e.g. "15;0" = white on black, "0;15" = black on white)
-	if v := os.Getenv("COLORFGBG"); v != "" {
-		parts := strings.Split(v, ";")
-		if len(parts) >= 2 {
-			bg, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-			if err == nil && bg >= 8 && bg != 255 {
-				return false // light background
-			}
+// findTheme returns the theme with the given name, or nil.
+func findTheme(name string) *Theme {
+	for _, t := range builtInThemes() {
+		if t.Name == name {
+			return t
 		}
 	}
 
-	// Check TERM_PROGRAM environment for known light-theme terminals
-	// (most terminals default to dark, so we stay conservative)
-	return true
+	return nil
 }
 
-func rgb(r, g, b byte) termbox.Attribute {
-	return termbox.RGBToAttribute(r, g, b)
+func c(r, g, b uint8) tcell.Color {
+	return tcell.NewRGBColor(int32(r), int32(g), int32(b))
 }
 
-func (t *Theme) buildTruecolorPalette() {
-	// Vibrant, distinct colors for pattern tracking
-	t.PatternColors = []termbox.Attribute{
-		rgb(0, 180, 216),   // cyan
-		rgb(45, 198, 83),   // green
-		rgb(255, 183, 3),   // yellow
-		rgb(251, 133, 0),   // orange
-		rgb(239, 71, 111),  // red-pink
-		rgb(247, 37, 133),  // pink
-		rgb(114, 9, 183),   // purple
-		rgb(67, 97, 238),   // blue
-		rgb(76, 201, 240),  // teal
-		rgb(6, 214, 160),   // lime
-		rgb(255, 107, 107), // coral
-		rgb(255, 209, 102), // gold
-		rgb(162, 155, 254), // lavender
-		rgb(253, 121, 168), // rose
-		rgb(99, 230, 190),  // mint
-		rgb(255, 159, 243), // peach
-	}
-	t.ManualCellFg = rgb(255, 255, 255) // white for manual cells
-
-	if t.DarkBg {
-		t.TitleFg = rgb(255, 255, 255)
-		t.TitleBg = rgb(30, 30, 46)
-		t.InfoFg = rgb(205, 214, 244)
-		t.InfoBg = rgb(30, 30, 46)
-		t.StatusFg = rgb(205, 214, 244)
-		t.StatusBg = rgb(49, 50, 68)
-		t.DialogFg = rgb(205, 214, 244)
-		t.DialogBg = rgb(30, 30, 46)
-	} else {
-		t.TitleFg = rgb(30, 30, 30)
-		t.TitleBg = rgb(220, 220, 230)
-		t.InfoFg = rgb(30, 30, 30)
-		t.InfoBg = rgb(220, 220, 230)
-		t.StatusFg = rgb(30, 30, 30)
-		t.StatusBg = rgb(200, 200, 215)
-		t.DialogFg = rgb(30, 30, 30)
-		t.DialogBg = rgb(220, 220, 230)
+// newTheme creates a Theme with uniform chrome colors.
+// Most themes use the same foreground/background for all UI chrome elements.
+func newTheme(name string, bg, fg, chromeBg tcell.Color, statusBg tcell.Color, patterns []tcell.Color) *Theme {
+	return &Theme{
+		Name:          name,
+		Background:    bg,
+		TitleFg:       fg,
+		TitleBg:       chromeBg,
+		InfoFg:        fg,
+		InfoBg:        chromeBg,
+		StatusFg:      fg,
+		StatusBg:      statusBg,
+		DialogFg:      fg,
+		DialogBg:      chromeBg,
+		CellChar:      '●',
+		ManualCellFg:  fg,
+		PatternColors: patterns,
 	}
 }
 
-func (t *Theme) build256Palette() {
-	// Good 256-color fallbacks
-	t.PatternColors = []termbox.Attribute{
-		termbox.ColorCyan,
-		termbox.ColorGreen,
-		termbox.ColorYellow,
-		termbox.Attribute(209), // orange
-		termbox.ColorRed,
-		termbox.Attribute(206), // pink
-		termbox.ColorMagenta,
-		termbox.ColorBlue,
-		termbox.Attribute(81),  // teal
-		termbox.Attribute(48),  // lime
-		termbox.Attribute(203), // coral
-		termbox.Attribute(220), // gold
-		termbox.Attribute(153), // lavender
-		termbox.Attribute(212), // rose
-		termbox.Attribute(79),  // mint
-		termbox.Attribute(218), // peach
-	}
-	t.ManualCellFg = termbox.ColorWhite
+// themeGruvboxDark returns the Gruvbox dark theme.
+func themeGruvboxDark() *Theme {
+	return newTheme(
+		"Gruvbox Dark",
+		c(0x28, 0x28, 0x18), // bg
+		c(0xeb, 0xdb, 0xb2), // fg
+		c(0x50, 0x49, 0x45), // chromeBg
+		c(0x3c, 0x38, 0x36), // statusBg
+		[]tcell.Color{
+			c(0xfb, 0x49, 0x34), c(0xfe, 0x80, 0x19), c(0xfa, 0xbd, 0x2f),
+			c(0xb8, 0xbb, 0x26), c(0x98, 0xc3, 0x79), c(0x68, 0xc6, 0xd0),
+			c(0x83, 0xa5, 0x98), c(0x8e, 0xb9, 0xf3), c(0xb1, 0x62, 0x86),
+			c(0xd3, 0x86, 0x9b), c(0xd6, 0x5d, 0x0e), c(0xfd, 0x9f, 0x10),
+		},
+	)
+}
 
-	if t.DarkBg {
-		t.TitleFg = termbox.ColorWhite
-		t.TitleBg = termbox.ColorDefault
-		t.InfoFg = termbox.ColorWhite
-		t.InfoBg = termbox.ColorDefault
-		t.StatusFg = termbox.ColorWhite
-		t.StatusBg = termbox.ColorDefault
-		t.DialogFg = termbox.ColorWhite
-		t.DialogBg = termbox.ColorDefault
-	} else {
-		t.TitleFg = termbox.ColorBlack
-		t.TitleBg = termbox.ColorDefault
-		t.InfoFg = termbox.ColorBlack
-		t.InfoBg = termbox.ColorDefault
-		t.StatusFg = termbox.ColorBlack
-		t.StatusBg = termbox.ColorDefault
-		t.DialogFg = termbox.ColorBlack
-		t.DialogBg = termbox.ColorDefault
-	}
+// themeGruvboxLight returns the Gruvbox light theme.
+func themeGruvboxLight() *Theme {
+	return newTheme(
+		"Gruvbox Light",
+		c(0xfb, 0xf1, 0xc7), // bg
+		c(0x3c, 0x38, 0x36), // fg
+		c(0xbd, 0xb6, 0xb2), // chromeBg
+		c(0xd5, 0xcf, 0xc5), // statusBg
+		[]tcell.Color{
+			c(0x9d, 0x00, 0x06), c(0xaf, 0x3a, 0x03), c(0xb5, 0x76, 0x14),
+			c(0x7f, 0x7f, 0x00), c(0x42, 0x7b, 0x58), c(0x00, 0x94, 0x85),
+			c(0x07, 0x66, 0x78), c(0x00, 0x6a, 0x8e), c(0x62, 0x2e, 0x6c),
+			c(0x8f, 0x3f, 0x81), c(0xbe, 0x00, 0x29), c(0xd6, 0x5d, 0x0e),
+		},
+	)
+}
+
+// themeMonokai returns the Monokai theme.
+func themeMonokai() *Theme {
+	return newTheme(
+		"Monokai",
+		c(0x27, 0x28, 0x22), // bg
+		c(0xf8, 0xf8, 0xf2), // fg
+		c(0x3e, 0x43, 0x3a), // chromeBg
+		c(0x3e, 0x43, 0x3a), // statusBg
+		[]tcell.Color{
+			c(0xf9, 0x26, 0x72), c(0xf4, 0x8b, 0x24), c(0xff, 0xe7, 0x85),
+			c(0xa6, 0xe2, 0x2e), c(0x96, 0x67, 0xf0), c(0x66, 0xd9, 0xef),
+			c(0xcc, 0x66, 0xcc), c(0xe6, 0xdb, 0x74), c(0xf9, 0x26, 0x72),
+			c(0xa1, 0xf0, 0x3a), c(0x8e, 0xb9, 0xf3), c(0xff, 0x61, 0x88),
+		},
+	)
+}
+
+// themeDracula returns the Dracula theme.
+func themeDracula() *Theme {
+	return newTheme(
+		"Dracula",
+		c(0x28, 0x2a, 0x36), // bg
+		c(0xf8, 0xf8, 0xf2), // fg
+		c(0x44, 0x47, 0x5a), // chromeBg
+		c(0x44, 0x47, 0x5a), // statusBg
+		[]tcell.Color{
+			c(0xff, 0x55, 0x55), c(0xff, 0x80, 0x41), c(0xf1, 0xfa, 0x8c),
+			c(0x50, 0xfa, 0x7b), c(0x8e, 0xb9, 0xf3), c(0x62, 0x72, 0xa4),
+			c(0xbf, 0x7f, 0xff), c(0xff, 0x79, 0xc6), c(0xe1, 0xef, 0xff),
+			c(0xff, 0x6e, 0x6e), c(0x7a, 0xd0, 0xe0), c(0xd4, 0xbe, 0x9e),
+		},
+	)
+}
+
+// themeTomorrow returns the Tomorrow (light) theme.
+func themeTomorrow() *Theme {
+	return newTheme(
+		"Tomorrow",
+		c(0xff, 0xff, 0xff), // bg
+		c(0x4d, 0x4d, 0x4c), // fg
+		c(0xe0, 0xe0, 0xe0), // chromeBg
+		c(0xe0, 0xe0, 0xe0), // statusBg
+		[]tcell.Color{
+			c(0xc8, 0x28, 0x29), c(0xf5, 0x87, 0x1f), c(0xea, 0xb0, 0x00),
+			c(0x71, 0x8c, 0x00), c(0x42, 0x71, 0xae), c(0x89, 0x59, 0xa8),
+			c(0x3e, 0x99, 0x9f), c(0xbe, 0x64, 0x6c), c(0xc9, 0x9c, 0x46),
+			c(0x90, 0xa9, 0x59), c(0x56, 0x84, 0xde), c(0xa3, 0x6a, 0xce),
+		},
+	)
+}
+
+// themeTomorrowNight returns the Tomorrow Night theme.
+func themeTomorrowNight() *Theme {
+	return newTheme(
+		"Tomorrow Night",
+		c(0x1d, 0x1f, 0x21), // bg
+		c(0xc5, 0xc8, 0xc6), // fg
+		c(0x37, 0x3b, 0x41), // chromeBg
+		c(0x37, 0x3b, 0x41), // statusBg
+		[]tcell.Color{
+			c(0xcc, 0x66, 0x66), c(0xde, 0x93, 0x5f), c(0xf0, 0xc6, 0x74),
+			c(0xb5, 0xbd, 0x68), c(0x81, 0xa2, 0xbe), c(0xb2, 0x94, 0xbb),
+			c(0x8a, 0xb, 0xa7), c(0xf1, 0x8c, 0x36), c(0xa3, 0x6a, 0xce),
+			c(0x70, 0xb9, 0x4e), c(0x66, 0xd9, 0xef), c(0xff, 0x5c, 0x57),
+		},
+	)
+}
+
+// themeNord returns the Nord theme.
+func themeNord() *Theme {
+	return newTheme(
+		"Nord",
+		c(0x2e, 0x34, 0x40), // bg
+		c(0xec, 0xef, 0xe1), // fg
+		c(0x3b, 0x42, 0x52), // chromeBg
+		c(0x3b, 0x42, 0x52), // statusBg
+		[]tcell.Color{
+			c(0xeb, 0xbb, 0xd4), c(0xa3, 0xbe, 0x8c), c(0xe6, 0xc3, 0x50),
+			c(0x8f, 0xb, 0xbf), c(0x81, 0xa1, 0xc1), c(0x88, 0xc0, 0xd0),
+			c(0x81, 0xa1, 0xc1), c(0xb4, 0x8e, 0xad), c(0xeb, 0xcb, 0x8b),
+			c(0xbf, 0x61, 0x6a), c(0xa3, 0xbe, 0x8c), c(0x88, 0xc0, 0xd0),
+		},
+	)
+}
+
+// themeSolarizedDark returns the Solarized dark theme.
+func themeSolarizedDark() *Theme {
+	return newTheme(
+		"Solarized Dark",
+		c(0x00, 0x2b, 0x36), // bg
+		c(0x83, 0x94, 0x96), // fg
+		c(0x07, 0x36, 0x42), // chromeBg
+		c(0x07, 0x36, 0x42), // statusBg
+		[]tcell.Color{
+			c(0xdc, 0x32, 0x2f), c(0xcb, 0x4b, 0x16), c(0xb5, 0x89, 0x00),
+			c(0x85, 0x99, 0x00), c(0x85, 0x99, 0x00), c(0x26, 0x8b, 0x8b),
+			c(0x26, 0x8b, 0xd2), c(0x6c, 0x71, 0xc4), c(0xd3, 0x36, 0x82),
+			c(0x2a, 0x9d, 0x8f), c(0xaa, 0x75, 0x9f), c(0x70, 0xb9, 0x4e),
+		},
+	)
+}
+
+// themeSolarizedLight returns the Solarized light theme.
+func themeSolarizedLight() *Theme {
+	return newTheme(
+		"Solarized Light",
+		c(0xfd, 0xf6, 0xe3), // bg
+		c(0x58, 0x6e, 0x75), // fg
+		c(0xe4, 0xe7, 0xe8), // chromeBg
+		c(0xe4, 0xe7, 0xe8), // statusBg
+		[]tcell.Color{
+			c(0xdc, 0x32, 0x2f), c(0xcb, 0x4b, 0x16), c(0xb5, 0x89, 0x00),
+			c(0x85, 0x99, 0x00), c(0x85, 0x99, 0x00), c(0x26, 0x8b, 0x8b),
+			c(0x26, 0x8b, 0xd2), c(0x6c, 0x71, 0xc4), c(0xd3, 0x36, 0x82),
+			c(0x2a, 0x9d, 0x8f), c(0xaa, 0x75, 0x9f), c(0x70, 0xb9, 0x4e),
+		},
+	)
+}
+
+// themeOneDark returns the One Dark theme.
+func themeOneDark() *Theme {
+	return newTheme(
+		"One Dark",
+		c(0x1e, 0x21, 0x24), // bg
+		c(0xab, 0xb2, 0xbf), // fg
+		c(0x28, 0x2c, 0x34), // chromeBg
+		c(0x28, 0x2c, 0x34), // statusBg
+		[]tcell.Color{
+			c(0xe0, 0x6c, 0x75), c(0xe5, 0xa0, 0x5d), c(0xe5, 0xc0, 0x7b),
+			c(0x98, 0xc3, 0x79), c(0x61, 0xaf, 0xef), c(0xc6, 0x78, 0xdd),
+			c(0x56, 0xb6, 0xc2), c(0x98, 0xc3, 0x79), c(0x89, 0xdd, 0xff),
+			c(0xb1, 0x7f, 0xf0), c(0x7, 0xb8, 0x88), c(0xff, 0xcb, 0x6b),
+		},
+	)
+}
+
+// themeCatppuccinMocha returns the Catppuccin Mocha theme.
+func themeCatppuccinMocha() *Theme {
+	return newTheme(
+		"Catppuccin Mocha",
+		c(0x1e, 0x1e, 0x2e), // bg
+		c(0xf5, 0xe0, 0xdc), // fg
+		c(0x31, 0x32, 0x44), // chromeBg
+		c(0x31, 0x32, 0x44), // statusBg
+		[]tcell.Color{
+			c(0xf3, 0x8b, 0xa8), c(0xfa, 0xb3, 0x87), c(0xf9, 0xe2, 0xaf),
+			c(0xa6, 0xe3, 0xa1), c(0x94, 0xe2, 0xd5), c(0x89, 0xdc, 0xeb),
+			c(0x74, 0xc7, 0xec), c(0x89, 0xb4, 0xfa), c(0xb4, 0xbe, 0xfe),
+			c(0xcb, 0xa6, 0xf7), c(0xf5, 0xc2, 0xe7), c(0xf2, 0xcd, 0xcd),
+		},
+	)
+}
+
+// themeCatppuccinLatte returns the Catppuccin Latte (light) theme.
+func themeCatppuccinLatte() *Theme {
+	return newTheme(
+		"Catppuccin Latte",
+		c(0xef, 0xef, 0xef), // bg
+		c(0x4c, 0x50, 0x5e), // fg
+		c(0xe6, 0xe6, 0xe6), // chromeBg
+		c(0xe6, 0xe6, 0xe6), // statusBg
+		[]tcell.Color{
+			c(0xd2, 0x0f, 0x00), c(0xf4, 0x53, 0x11), c(0xda, 0x7, 0x0),
+			c(0x40, 0xa0, 0x2b), c(0x17, 0x94, 0x50), c(0x1e, 0x64, 0x9b),
+			c(0x72, 0x87, 0xba), c(0x88, 0x39, 0xef), c(0xe1, 0x1, 0x69),
+			c(0xe6, 0x45, 0x57), c(0xb5, 0x65, 0x7a), c(0x58, 0x75, 0x54),
+		},
+	)
 }

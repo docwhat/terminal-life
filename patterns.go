@@ -70,6 +70,7 @@ func PlacePattern(g *Grid, r, c int, p Pattern, colorIdx uint8) {
 	for _, cell := range p.Cells {
 		gr := r + cell[0]
 		gc := c + cell[1]
+
 		if gr >= 0 && gr < g.Rows() && gc >= 0 && gc < g.Cols() {
 			g.SetColor(gr, gc, colorIdx)
 		}
