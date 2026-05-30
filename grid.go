@@ -2,10 +2,11 @@ package main
 
 import "math/rand"
 
-const (
-	cellDead    uint8 = 0
-	colorManual uint8 = 0xFF // special: manually toggled cell
-)
+// cellDead represents a dead cell.
+const cellDead uint8 = 0
+
+// colorManual is a special color index for manually toggled cells.
+const colorManual uint8 = 0xFF
 
 // Grid represents the Game of Life grid with colored cells.
 type Grid struct {

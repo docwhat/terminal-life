@@ -340,7 +340,7 @@ func (s *GameState) handlePatternOverlayEvent(ev *tcell.EventKey) interface{} {
 		filtered := s.filterPatterns()
 
 		if s.ovHighlight >= 0 && s.ovHighlight < len(filtered) {
-			return &filtered[s.ovHighlight]
+			return filtered[s.ovHighlight]
 		}
 
 		return nil
@@ -410,7 +410,7 @@ func (s *GameState) handleThemeOverlayEvent(ev *tcell.EventKey) interface{} {
 func (s *GameState) filterPatterns() []Pattern {
 	var filtered []Pattern
 
-	for _, p := range patterns {
+	for _, p := range patterns() {
 		if s.ovQuery == "" || fuzzyMatch(s.ovQuery, p.Name) {
 			filtered = append(filtered, p)
 		}
@@ -525,7 +525,7 @@ func (s *GameState) renderGame() {
 	// ── Status bar (row h-1) ──
 	s.drawBar(h-1, w, t.StatusFg, t.StatusBg, " ")
 	status := fmt.Sprintf(" Cursor: (%d,%-3d) │ %d pattern(s) │ %s │ ? help │ p pattern │ t theme ",
-		s.cursorR, s.cursorC, len(patterns), statusText(s.running, s.speed))
+		s.cursorR, s.cursorC, len(patterns()), statusText(s.running, s.speed))
 	drawStr(s.screen, 1, h-1, status, t.StatusFg, t.StatusBg)
 }
 
@@ -990,10 +990,10 @@ func handleOverlayKeyEvent(ev *tcell.EventKey, state *GameState, screen tcell.Sc
 	result := state.handleOverlayEvent(ev)
 
 	switch v := result.(type) {
-	case *Pattern:
-		if v != nil {
+	case Pattern:
+		if v.Name != "" {
 			colorIdx := state.nextPatternColor()
-			PlacePattern(state.grid, state.cursorR, state.cursorC, *v, colorIdx)
+			PlacePattern(state.grid, state.cursorR, state.cursorC, v, colorIdx)
 			state.generations = 0
 		}
 	case *Theme:
