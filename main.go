@@ -36,6 +36,7 @@ type GameState struct {
 
 	// Pattern color tracking
 	nextColorIdx int // cycles through theme.PatternColors
+	colorOffset  int // random offset for manual cell palette colors
 
 	// Overlay state
 	overlay     overlayMode
@@ -143,7 +144,8 @@ func (s *GameState) cellFg(colorIdx uint8, age, r, c int) tcell.Color {
 		return s.theme.Background
 	case colorManual:
 		// Pick a palette color based on position for a colorful spatial distribution.
-		paletteIdx := (r*31 + c*37) % len(s.theme.PatternColors)
+		// The colorOffset is randomized on grid reset and theme change.
+		paletteIdx := ((r*31 + c*37) + s.colorOffset) % len(s.theme.PatternColors)
 
 		return s.fadeColor(s.theme.PatternColors[paletteIdx], age)
 	default:
@@ -700,6 +702,7 @@ func handleKeyEvent(ev *tcell.EventKey, state *GameState) bool {
 	case ev.Key() == tcell.KeyF5 || ev.Rune() == 'c':
 		state.grid.Reset()
 		state.generations = 0
+		state.colorOffset = rand.Intn(len(state.theme.PatternColors))
 	case ev.Key() == tcell.KeyF8 || ev.Rune() == 'r':
 		state.grid.Randomize()
 		state.generations = 0
@@ -889,6 +892,7 @@ func initState(screen tcell.Screen, theme *Theme) *GameState {
 		running:      true,
 		speed:        3,
 		nextColorIdx: 0,
+		colorOffset:  rand.Intn(len(theme.PatternColors)),
 	}
 }
 
@@ -979,6 +983,7 @@ func handleOverlayKeyEvent(ev *tcell.EventKey, state *GameState, screen tcell.Sc
 		if v != nil {
 			state.theme = v
 			screen.SetStyle(tcell.StyleDefault.Background(v.Background).Foreground(v.Background))
+			state.colorOffset = rand.Intn(len(v.PatternColors))
 		}
 	}
 
