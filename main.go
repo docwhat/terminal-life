@@ -324,16 +324,23 @@ func (s *GameState) handleOverlayEvent(ev *tcell.EventKey) interface{} {
 
 		return nil
 	case overlayPattern:
-		return s.handlePatternOverlayEvent(ev)
+		return s.handleOverlayPickerEvent(ev,
+			func() int { return len(s.filterPatterns()) },
+			func(i int) interface{} { return s.filterPatterns()[i] },
+		)
 	case overlayTheme:
-		return s.handleThemeOverlayEvent(ev)
+		return s.handleOverlayPickerEvent(ev,
+			func() int { return len(s.filterThemes()) },
+			func(i int) interface{} { return s.filterThemes()[i] },
+		)
 	}
 
 	return nil
 }
 
-// handlePatternOverlayEvent processes key events in the pattern picker.
-func (s *GameState) handlePatternOverlayEvent(ev *tcell.EventKey) interface{} {
+// handleOverlayPickerEvent processes key events for filterable overlay pickers.
+// lenFn returns the number of filtered items; itemFn returns the item at the given index.
+func (s *GameState) handleOverlayPickerEvent(ev *tcell.EventKey, lenFn func() int, itemFn func(int) interface{}) interface{} {
 	switch {
 	case ev.Key() == tcell.KeyEscape:
 		s.overlay = overlayNone
@@ -341,10 +348,9 @@ func (s *GameState) handlePatternOverlayEvent(ev *tcell.EventKey) interface{} {
 		return nil
 	case ev.Key() == tcell.KeyEnter:
 		s.overlay = overlayNone
-		filtered := s.filterPatterns()
 
-		if s.ovHighlight >= 0 && s.ovHighlight < len(filtered) {
-			return filtered[s.ovHighlight]
+		if s.ovHighlight >= 0 && s.ovHighlight < lenFn() {
+			return itemFn(s.ovHighlight)
 		}
 
 		return nil
@@ -353,48 +359,7 @@ func (s *GameState) handlePatternOverlayEvent(ev *tcell.EventKey) interface{} {
 			s.ovHighlight--
 		}
 	case ev.Key() == tcell.KeyDown:
-		filtered := s.filterPatterns()
-
-		if s.ovHighlight < len(filtered)-1 {
-			s.ovHighlight++
-		}
-	case ev.Key() == tcell.KeyBackspace:
-		if len(s.ovQuery) > 0 {
-			s.ovQuery = s.ovQuery[:len(s.ovQuery)-1]
-		}
-	case ev.Rune() != 0 && ev.Rune() < 128:
-		if len(s.ovQuery) < 20 {
-			s.ovQuery += string(ev.Rune())
-		}
-	}
-
-	return nil
-}
-
-// handleThemeOverlayEvent processes key events in the theme picker.
-func (s *GameState) handleThemeOverlayEvent(ev *tcell.EventKey) interface{} {
-	switch {
-	case ev.Key() == tcell.KeyEscape:
-		s.overlay = overlayNone
-
-		return nil
-	case ev.Key() == tcell.KeyEnter:
-		s.overlay = overlayNone
-		filtered := s.filterThemes()
-
-		if s.ovHighlight >= 0 && s.ovHighlight < len(filtered) {
-			return filtered[s.ovHighlight]
-		}
-
-		return nil
-	case ev.Key() == tcell.KeyUp:
-		if s.ovHighlight > 0 {
-			s.ovHighlight--
-		}
-	case ev.Key() == tcell.KeyDown:
-		filtered := s.filterThemes()
-
-		if s.ovHighlight < len(filtered)-1 {
+		if s.ovHighlight < lenFn()-1 {
 			s.ovHighlight++
 		}
 	case ev.Key() == tcell.KeyBackspace:
