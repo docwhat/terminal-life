@@ -133,15 +133,19 @@ func (s *GameState) calcScroll(visible int) int {
 	return scroll
 }
 
-// cellFg returns the foreground color for a cell given its color index and age.
-// For non-pattern cells (colorManual), the color fades with age while keeping the same hue.
+// cellFg returns the foreground color for a cell given its color index, age, and position.
+// For non-pattern cells (colorManual), the color is picked from the pattern palette based
+// on position and fades with age while keeping the same hue.
 // For pattern cells, the color is fixed from the pattern palette.
-func (s *GameState) cellFg(colorIdx uint8, age int) tcell.Color {
+func (s *GameState) cellFg(colorIdx uint8, age, r, c int) tcell.Color {
 	switch colorIdx {
 	case cellDead:
 		return s.theme.Background
 	case colorManual:
-		return s.fadeColor(s.theme.ManualCellFg, age)
+		// Pick a palette color based on position for a colorful spatial distribution.
+		paletteIdx := (r*31 + c*37) % len(s.theme.PatternColors)
+
+		return s.fadeColor(s.theme.PatternColors[paletteIdx], age)
 	default:
 		paletteIdx := int(colorIdx-1) % len(s.theme.PatternColors)
 
@@ -502,7 +506,7 @@ func (s *GameState) renderGame() {
 					ch = t.CellChar
 				}
 
-				fg = s.cellFg(colorIdx, age)
+				fg = s.cellFg(colorIdx, age, r, c)
 				bg = t.Background
 			} else {
 				ch = ' '
