@@ -760,14 +760,18 @@ func printThemeList() {
 	}
 }
 
-// parseThemeFromArgs returns the theme selected via CLI flags, or nil.
-func parseThemeFromArgs() *Theme {
+// ErrExit is returned when an exit flag (--help, --list-themes) is passed.
+var ErrExit = fmt.Errorf("exit requested")
+
+// parseThemeFromArgs returns the theme selected via CLI flags, or nil if no
+// theme flag was provided. It returns ErrExit when an exit flag is passed.
+func parseThemeFromArgs() (*Theme, error) {
 	for i, arg := range os.Args[1:] {
 		switch arg {
 		case "--list-themes", "-l":
 			printThemeList()
 
-			return nil
+			return nil, ErrExit
 		case "--help", "-h":
 			fmt.Println("Usage: terminal-life [OPTIONS]")
 			fmt.Println()
@@ -776,12 +780,12 @@ func parseThemeFromArgs() *Theme {
 			fmt.Println("  -l, --list-themes  List all available themes")
 			fmt.Println("  -h, --help         Show this help message")
 
-			return nil
+			return nil, ErrExit
 		case "--theme", "-t":
 			if i+1 < len(os.Args[1:]) {
 				themeName := os.Args[2+i]
 				if t := findTheme(themeName); t != nil {
-					return t
+					return t, nil
 				}
 
 				fmt.Fprintf(os.Stderr, "Unknown theme: %s\n", themeName)
@@ -794,7 +798,7 @@ func parseThemeFromArgs() *Theme {
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 // intMax returns the larger of a and b.
@@ -822,7 +826,15 @@ func fuzzyMatch(query, name string) bool {
 }
 
 func main() {
-	theme := parseThemeFromArgs()
+	theme, err := parseThemeFromArgs()
+	if err != nil {
+		if err == ErrExit {
+			os.Exit(0)
+		}
+
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	if theme == nil {
 		theme = defaultTheme()
 	}
