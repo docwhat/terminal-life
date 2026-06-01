@@ -67,3 +67,25 @@ Each file should already have some minimal information at the top of each file a
 1. Order of operations: what blocks what?
 1. Test plan per task?
 1. Escalation: What triggers a need for the task to be sent back to the architect mid-build?
+
+## Future Tickets (Templates)
+
+### WASM Build
+
+> "Implement a WASM build for the terminal Game of Life. Research tcell WASM compatibility. If tcell doesn't support GOOS=js, implement a minimal HTML/JS fallback renderer. Output to wasm/wasm.wasm with wasm_index.html and wasm.js loader."
+
+### GitHub Pages
+
+> "Create a GitHub Actions workflow to deploy the WASM build to GitHub Pages. Configure for manual or push-triggered deployment. Target branch: gh-pages."
+
+### Release Cycle
+
+> "Create a GitHub Actions release workflow. Build binaries for linux/amd64, darwin/amd64, darwin/arm64, windows/amd64 on tag. Produce tarball artifacts."
+
+### Versioning
+
+> "Add versioning support: a --version flag, version display in the info bar, and ldflags injection during release builds."
+
+### Polish Pass
+
+> "Review and simplify the codebase. Focus on: reducing duplication in overlay renderers, extracting reusable picker logic, improving Go docs, and running trunk check/fmt."
